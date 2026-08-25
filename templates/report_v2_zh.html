@@ -44,10 +44,10 @@
 <body>
 <div class="container">
 
-<h1>DTP静态分析违规对比报告</h1>
+<h1>Parasoft代码核查报告</h1>
 <p class="subtitle">生成时间：{{ generated_time }} | DTP服务器：{{ dtp_url }}</p>
 
-<h2>1. 执行摘要</h2>
+<h2>1. 摘要</h2>
 <div class="summary-cards">
   <div class="card"><div class="label">项目总数</div><div class="value">{{ summary.total_projects }}</div></div>
   <div class="card"><div class="label">最新构建项目</div><div class="value sm">{{ summary.latest_project }}</div></div>
@@ -55,7 +55,7 @@
   <div class="card highlight"><div class="label">违规最多类别</div><div class="value sm">{{ summary.top_category }}（{{ "{:,}".format(summary.top_category_count) }}）</div></div>
 </div>
 
-<h2>2. 违规概览</h2>
+<h2>2. 项目概览</h2>
 <table>
   <thead>
     <tr>
@@ -122,8 +122,7 @@
     </tr>
   </thead>
   <tbody>
-    {% for d in data %}
-    {% if d.has_data and d.severity_breakdown %}
+    {% for d in detail_data %}
     <tr>
       <td>{{ d.project_name }}</td>
       {% for sev in severity_order %}
@@ -131,7 +130,6 @@
       {% endfor %}
       <td class="num"><strong>{{ "{:,}".format(d.failed) }}</strong></td>
     </tr>
-    {% endif %}
     {% endfor %}
   </tbody>
 </table>

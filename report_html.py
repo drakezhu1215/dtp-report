@@ -25,6 +25,19 @@ TEMPLATE_MAP = {
 }
 
 
+def _build_sort_key(d: ProjectViolations) -> tuple:
+    """返回可比较的排序键，用于按 build_id 判断“最新构建”。
+
+    DTP 的 build id 通常是数字字符串（如 \"12345\"），直接用字符串比较会
+    出现 \"10\" < \"7\" 的错误；这里优先按数值比较，非数字再回退到字符串。
+    """
+    bid = d.build_id
+    try:
+        return (0, int(bid))
+    except (TypeError, ValueError):
+        return (1, str(bid))
+
+
 def _build_summary(data: list[ProjectViolations]) -> dict:
     active = [d for d in data if d.has_data]
     total_failed = sum(d.failed for d in active)
@@ -34,10 +47,9 @@ def _build_summary(data: list[ProjectViolations]) -> dict:
     highest_project = highest_proj.project_name if highest_proj else "N/A"
     highest_project_count = highest_proj.failed if highest_proj else 0
 
-    latest_proj = max(data, key=lambda d: d.build_id) if data else None
-    print(latest_proj,flush=True)
+    # 从“有数据的项目”里取最新构建，避免选中无数据项目；并按数值比较 build_id
+    latest_proj = max(active, key=_build_sort_key) if active else None
     latest_project = latest_proj.project_name if latest_proj else "N/A"
-    print(latest_project,flush=True)
     
     cat_totals: dict[str, int] = defaultdict(int)
     for d in active:
@@ -81,16 +93,24 @@ def generate_html_report(
     template_name = TEMPLATE_MAP.get(locale, "report_zh.html")
 
     template_dir = Path(__file__).parent / "templates"
-    env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=False)
+    env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=True)
     template = env.get_template(template_name)
 
     summary = _build_summary(data)
     all_categories, category_totals = _collect_all_categories(data)
 
+    # 只对明细表排序，不影响其他表（有严重级别明细的项目、按违规数降序）
+    detail_data = sorted(
+        [d for d in data if d.has_data and d.severity_breakdown],
+        key=lambda x: x.failed,
+        reverse=True,  # 从多到少
+    )
+
     html = template.render(
         generated_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         dtp_url=dtp_url,
-        data=data,
+        data=data,  # 保持原样，给项目概览和其他表用
+        detail_data=detail_data,  # 新增，专门给明细表用
         summary=summary,
         charts=charts,
         severity_order=SEVERITY_ORDER,
