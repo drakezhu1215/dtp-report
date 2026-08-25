@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""merge DTP repository """
+
+from collections import defaultdict
+from analyzer import ProjectViolations, SEVERITY_LABELS
+
+def merge_project_violations(
+    violations: list[ProjectViolations],
+    merge_projects: dict[str, list[str]],
+) -> list[ProjectViolations]:
+
+    # project_name -> ProjectViolations
+    project_map = {
+        item.project_name: item
+        for item in violations
+    }
+
+    result: list[ProjectViolations] = []
+
+    # 记录哪些原始项目已经参与合并
+    merged_source_projects: set[str] = set()
+
+    for new_project_name, source_projects in merge_projects.items():
+
+        merged_items = []
+
+        for project_name in source_projects:
+            item = project_map.get(project_name)
+
+            if item is not None:
+                merged_items.append(item)
+                merged_source_projects.add(project_name)
+
+        # 配置了合并关系，但是实际没有找到任何项目
+        if not merged_items:
+            continue
+
+        # ==========================
+        # 1. 合并 failed / suppressed
+        # ==========================
+
+        failed = sum(
+            item.failed
+            for item in merged_items
+        )
+
+        suppressed = sum(
+            item.suppressed
+            for item in merged_items
+        )
+
+        # ==========================
+        # 2. 合并 has_data
+        # ==========================
+
+        has_data = any(
+            item.has_data
+            for item in merged_items
+        )
+
+        # ==========================
+        # 3. 合并 severity_breakdown
+        # ==========================
+
+        severity_breakdown: dict[str, int] = defaultdict(int)
+
+        for item in merged_items:
+            for severity, count in item.severity_breakdown.items():
+                severity_breakdown[severity] += count
+
+        # ==========================
+        # 4. 合并 category_breakdown
+        # ==========================
+
+        category_breakdown: dict[str, int] = defaultdict(int)
+
+        for item in merged_items:
+            for category, count in item.category_breakdown.items():
+                category_breakdown[category] += count
+
+        # ==========================
+        # 5. 创建新的 ProjectViolations
+        # ==========================
+
+        merged_project = ProjectViolations(
+            project_name=new_project_name,
+
+            # 合并项目没有唯一的 filter/build，
+            # 这里暂时使用第一个项目的信息
+            filter_id=merged_items[0].filter_id,
+            filter_name=merged_items[0].filter_name,
+            build_id=merged_items[0].build_id,
+
+            has_data=has_data,
+            failed=failed,
+            suppressed=suppressed,
+
+            severity_breakdown=dict(severity_breakdown),
+            category_breakdown=dict(category_breakdown),
+        )
+
+        result.append(merged_project)
+
+    # ==========================
+    # 6. 保留没有参与合并的项目
+    # ==========================
+    # for item in violations:
+    #     if item.project_name not in merged_source_projects:
+    #         result.append(item)
+    
+    return result
