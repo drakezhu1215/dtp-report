@@ -71,7 +71,8 @@ def main():
     username = args.user or dtp_cfg.get("username", "admin")
     password = args.password or dtp_cfg.get("password", "admin")
     output_dir = args.output or report_cfg.get("output_dir", "./output")
-    top_n = report_cfg.get("top_n_categories", 15)
+    top_n_bad = report_cfg.get("top_n_bad", 3)
+    top_n_good = report_cfg.get("top_n_good", 3)
     locale = args.locale or report_cfg.get("locale", "v2_zh")
 
     project_names = None
@@ -98,7 +99,7 @@ def main():
         sys.exit(0)
 
     logger.info("Generating charts...")
-    charts = generate_all_charts(merged_violations, top_n=top_n)
+    charts = generate_all_charts(merged_violations, top_n_bad=top_n_bad, top_n_good=top_n_good)
 
     out = Path(output_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -113,7 +114,7 @@ def main():
     logger.info("Generating HTML report (locale=%s)...", locale)
     html_path = generate_html_report(
         merged_violations, charts, out / f"dtp_sa_report_{timestamp}.html",
-        dtp_url=url, top_n_categories=top_n, locale=locale,
+        dtp_url=url, locale=locale,
     )
     logger.info("HTML report: %s", html_path)
 

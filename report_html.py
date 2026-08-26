@@ -10,11 +10,11 @@ from analyzer import ProjectViolations, SEVERITY_LABELS
 from chart_builder import SEVERITY_ORDER, SEVERITY_SHORT
 
 SEVERITY_LABELS_ZH = {
-    "1": "严重级别1（致命）",
-    "2": "严重级别2（严重）",
-    "3": "严重级别3（中等）",
-    "4": "严重级别4（轻微）",
-    "5": "严重级别5（提示）",
+    "1": "1级-致命",
+    "2": "2级-严重",
+    "3": "3级-中等",
+    "4": "4级-轻微",
+    "5": "5级-备选",
 }
 
 TEMPLATE_MAP = {
@@ -71,23 +71,11 @@ def _build_summary(data: list[ProjectViolations]) -> dict:
     }
 
 
-def _collect_all_categories(data: list[ProjectViolations]) -> tuple[list[str], dict[str, int]]:
-    totals: dict[str, int] = defaultdict(int)
-    for d in data:
-        if not d.has_data:
-            continue
-        for cat, cnt in d.category_breakdown.items():
-            totals[cat] += cnt
-    sorted_cats = sorted(totals, key=totals.get, reverse=True)
-    return sorted_cats, dict(totals)
-
-
 def generate_html_report(
     data: list[ProjectViolations],
     charts: dict,
     output_path: Path,
     dtp_url: str,
-    top_n_categories: int = 15,
     locale: str = "zh",
 ) -> Path:
     template_name = TEMPLATE_MAP.get(locale, "report_zh.html")
@@ -97,7 +85,6 @@ def generate_html_report(
     template = env.get_template(template_name)
 
     summary = _build_summary(data)
-    all_categories, category_totals = _collect_all_categories(data)
 
     # 只对明细表排序，不影响其他表（有严重级别明细的项目、按违规数降序）
     detail_data = sorted(
@@ -117,9 +104,6 @@ def generate_html_report(
         severity_short=SEVERITY_SHORT,
         severity_labels=SEVERITY_LABELS,
         severity_labels_zh=SEVERITY_LABELS_ZH,
-        top_n_categories=top_n_categories,
-        all_categories=all_categories,
-        category_totals=category_totals,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

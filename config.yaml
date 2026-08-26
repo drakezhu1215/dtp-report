@@ -6,7 +6,8 @@ dtp:
 report:
   output_dir: "./output"
   project_names: []
-  top_n_categories: 15
+  top_n_bad: 3
+  top_n_good: 3
   locale: "v2_zh"
 
 merge_projects:

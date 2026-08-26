@@ -83,7 +83,7 @@
   </tbody>
 </table>
 
-<h2>3. 违规数量对比</h2>
+<h2>3. 违规警示榜</h2>
 <div class="chart-section">
   {% if charts.total %}
   <img src="data:image/png;base64,{{ charts.total }}" alt="违规总量对比图">
@@ -92,25 +92,16 @@
   {% endif %}
 </div>
 
-<h2>4. 严重级别分布</h2>
+<h2>4. 合规模范榜</h2>
 <div class="chart-section">
-  {% if charts.severity_stacked %}
-  <img src="data:image/png;base64,{{ charts.severity_stacked }}" alt="严重级别堆叠图">
+  {% if charts.total_good %}
+  <img src="data:image/png;base64,{{ charts.total_good }}" alt="合规项目对比图">
   {% else %}
   <p>暂无可显示的数据图表。</p>
   {% endif %}
 </div>
 
-<h2>5. 严重级别占比分布</h2>
-<div class="chart-section">
-  {% if charts.severity_pct %}
-  <img src="data:image/png;base64,{{ charts.severity_pct }}" alt="严重级别占比图">
-  {% else %}
-  <p>暂无可显示的数据图表。</p>
-  {% endif %}
-</div>
-
-<h2>6. 严重级别明细表</h2>
+<h2>5. 严重级别明细表</h2>
 <table>
   <thead>
     <tr>
@@ -129,52 +120,6 @@
       <td class="num sev{{ sev }}">{{ "{:,}".format(d.severity_breakdown.get(sev, 0)) }}</td>
       {% endfor %}
       <td class="num"><strong>{{ "{:,}".format(d.failed) }}</strong></td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<h2>7. 各项目严重级别饼图</h2>
-<div class="pie-grid">
-  {% for name, img in charts.severity_pies %}
-  <div class="pie-item">
-    <img src="data:image/png;base64,{{ img }}" alt="{{ name }} 严重级别饼图">
-  </div>
-  {% endfor %}
-</div>
-
-<h2>8. 规则类别分布（前{{ top_n_categories }}项）</h2>
-<div class="chart-section">
-  {% if charts.category_top_n %}
-  <img src="data:image/png;base64,{{ charts.category_top_n }}" alt="规则类别分布图">
-  {% else %}
-  <p>暂无可显示的数据图表。</p>
-  {% endif %}
-</div>
-
-<h2>9. 规则类别明细表</h2>
-<table>
-  <thead>
-    <tr>
-      <th>规则类别</th>
-      {% for d in data %}
-      {% if d.has_data %}
-      <th class="num">{{ d.project_name }}</th>
-      {% endif %}
-      {% endfor %}
-      <th class="num">合计</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for cat in all_categories %}
-    <tr>
-      <td>{{ cat }}</td>
-      {% for d in data %}
-      {% if d.has_data %}
-      <td class="num">{{ "{:,}".format(d.category_breakdown.get(cat, 0)) }}</td>
-      {% endif %}
-      {% endfor %}
-      <td class="num"><strong>{{ "{:,}".format(category_totals.get(cat, 0)) }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
