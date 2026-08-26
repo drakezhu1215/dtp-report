@@ -11,39 +11,39 @@ report:
   locale: "v2_zh"
 
 merge_projects:
-  海外三相电表平台项目:
+  海外三相电表平台:
     - spln_3p_application
     - spln_3p_bootloader
     - spln_3p_kernel
     - spln_3p_metrology
-  印尼集中器平台项目:
+  印尼集中器平台:
     - bitbucket_spln_dcu
     - yinni_bitbucket_web_admin
     - bitbucket_dlms_client
-  印尼PLN的AMI标准制定项目:
+  印尼PLN的AMI标准制定:
     - cco_yinni_ami_pln
     - sta_yinni_ami_pln
-  国网营销双模湖南扩展协议项目:
+  国网营销双模湖南扩展协议:
     - dual_mode_cco
     - dual_mode_sta_multi_sdk_release
   智能互感器在线监测无线通信方案:
     - dual_mode_sta_hrf
-  国网营销双模能源控制器(专变)模块项目:
+  国网营销双模能源控制器(专变)模块:
     - dual_mode_cco
     - at32f415_apps
     - at32f415_boot
-  宽带双模通信V2.0版协议栈开发项目:
+  宽带双模通信V2.0版协议栈开发:
     - splc_dll_cco
     - splc_dll_sta
   双模+230RF本地通信单元:
     - dual_mode_230rf_cco
     - dual_mode_230rf_sta
-  国网营销双模台区智能融合终端模块项目:
+  国网营销双模台区智能融合终端模块:
     - dual_mode_ecu
     - usb_2.0_cdc
-  国网多APP平台III型专变优化方案（22规范/24规范）:
+  国网多APP平台III型专变优化方案(22规范/24规范):
     - stAmr2_gz
-  南网智能量测终端（负控、集中器）:
+  南网智能量测终端(负控、集中器):
     - dncomm
     - base
     - dncomm
@@ -55,22 +55,22 @@ merge_projects:
     - sampling
   Stackforce_SX1302透传模块:
     - sx1302-lora-gateway
-  常供电场域网终端平台项目:
+  常供电场域网终端平台:
     - gd32w515_container
     - gd32w515_LifecycleMicroservice
     - gd32w515_Supervisor    
   WI-SUN FAN项目:
     - q59_wisun_6lr
-  越南与VSEE合作新AMI方案试点项目:
+  越南与VSEE合作新AMI方案试点:
     - fc633j_app
     - fc633b1_app
     - cco_yuenan_ami
     - sta_yuenan_ami
-  低功耗场域网终端平台项目:
+  低功耗场域网终端平台:
     - _LifecycleMicroservice
     -  _Runtime
     - _Container1
-  FG23L低成本WM-Bus项目:
+  FG23L低成本WM-Bus:
     - wmbus_fg23l
   工商业超声波燃气计量模组&整机:
     - fc_730_jm
@@ -82,29 +82,23 @@ merge_projects:
     - fcgd_huarun
   新型电力系统智能终端关键技术研究:
     - collector
-  南网B级C级三相智能电能表（通信模块-开关外置）:
+  南网B级C级三相智能电能表(通信模块-开关外置):
     - ht6035_nw
-  国网25版A级单相费控智能电能表（远程-开关内置）:
+  国网25版A级单相费控智能电能表(远程-开关内置):
     - gw_single_meter_25_SEM_HT6xxxLower
     - gw_single_meter_25_SEM_HT6xxx
-  南网24版B/C级三相智能网关电能表（开关外置）:
+  南网24版B/C级三相智能网关电能表(开关外置):
     - nw_three_meter_24_NW_24_Meter_Boot
     - nw_three_meter_24_NW_24_Meter_App
   国网25版B级三相费控智能电能表:
     - gw_three_meter_25_GW_25_Meter_App
     - gw_three_meter_25_GW_25_Meter_Boot
-  南网24规范A级单相智能模组化电能表（通信模块-开关内置-钜泉方案）:
+  南网24规范A级单相智能模组化电能表(通信模块-开关内置-钜泉方案):
     - FM33A0610EVB
-  25-3北京A级单相智能电能表研发项目:
+  25-3北京A级单相智能电能表研发:
     - gw25_singlephase_Keil_boot
     - gw25_singlephase_Keil_M01
-  海外AMI表（电表二组）:
+  海外AMI表:
     - overseas_rn8213_app
     - overseas_rn8213_legal
     - overseas_rn8213_boot
-
-
-
-
-
-

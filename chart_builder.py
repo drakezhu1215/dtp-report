@@ -66,7 +66,12 @@ def _fig_to_base64(fig: plt.Figure) -> str:
     return img_b64
 
 
-def _plot_total_violations(active: list[ProjectViolations], title: str) -> str:
+def _plot_total_violations(
+    active: list[ProjectViolations],
+    title: str,
+    failed_color: str = "#d32f2f",
+    suppressed_color: str = "#ffa726",
+) -> str:
     names = [d.project_name for d in active]
     failed = [d.failed for d in active]
     suppressed = [d.suppressed for d in active]
@@ -74,8 +79,8 @@ def _plot_total_violations(active: list[ProjectViolations], title: str) -> str:
     fig, ax = plt.subplots(figsize=(max(8, len(names) * 1.5), 6))
     x = range(len(names))
     width = 0.35
-    bars_f = ax.bar([i - width / 2 for i in x], failed, width, label="Failed", color="#d32f2f")
-    bars_s = ax.bar([i + width / 2 for i in x], suppressed, width, label="Suppressed", color="#ffa726")
+    bars_f = ax.bar([i - width / 2 for i in x], failed, width, label="Failed", color=failed_color)
+    bars_s = ax.bar([i + width / 2 for i in x], suppressed, width, label="Suppressed", color=suppressed_color)
 
     ax.set_xlabel("Project")
     ax.set_ylabel("Violation Count")
@@ -123,6 +128,8 @@ def chart_total_violations_good(data: list[ProjectViolations], top_n_good: int =
     return _plot_total_violations(
         active,
         f"Static Analysis Violations by Project (Top {len(active)} Best)",
+        failed_color="#1976d2",
+        suppressed_color="#388e3c",
     )
 
 

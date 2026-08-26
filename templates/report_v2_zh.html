@@ -50,9 +50,9 @@
 <h2>1. 摘要</h2>
 <div class="summary-cards">
   <div class="card"><div class="label">项目总数</div><div class="value">{{ summary.total_projects }}</div></div>
-  <div class="card"><div class="label">最新构建项目</div><div class="value sm">{{ summary.latest_project }}</div></div>
-  <div class="card highlight"><div class="label">违规最多项目</div><div class="value sm">{{ summary.highest_project }}（{{ "{:,}".format(summary.highest_project_count) }}）</div></div>
-  <div class="card highlight"><div class="label">违规最多类别</div><div class="value sm">{{ summary.top_category }}（{{ "{:,}".format(summary.top_category_count) }}）</div></div>
+  <div class="card"><div class="label">文件总数</div><div class="value sm">{{ summary.latest_project }}</div></div>
+  <div class="card"><div class="label">代码总数</div><div class="value sm">{{ summary.highest_project }}（{{ "{:,}".format(summary.highest_project_count) }}）</div></div>
+  <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ summary.top_category }}（{{ "{:,}".format(summary.top_category_count) }}）</div></div>
 </div>
 
 <h2>2. 项目概览</h2>
@@ -61,11 +61,12 @@
     <tr>
       <th>序号</th>
       <th>项目名称</th>
-      <th>过滤器</th>
-      <th>构建ID</th>
-      <th class="num">未解决</th>
-      <th class="num">已抑制</th>
+      <th class="num">文件数</th>
+      <th class="num">代码行数</th>
+      <th class="num">违规</th>
+      <th class="num">抑制</th>
       <th class="num">合计</th>
+      <th class="num">缺陷密度</th>
     </tr>
   </thead>
   <tbody>
@@ -73,11 +74,12 @@
     <tr>
       <td>{{ loop.index }}</td>
       <td>{{ d.project_name }}</td>
-      <td>{{ d.filter_name }}</td>
-      <td>{{ d.build_id }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.failed) if d.has_data else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.failed + d.suppressed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
     </tr>
     {% endfor %}
   </tbody>
