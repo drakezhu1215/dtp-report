@@ -8,7 +8,8 @@ report:
   project_names: []
   top_n_bad: 3
   top_n_good: 3
-  locale: "v2_zh"
+  locale_friendcom: "v2_zh"   # main_friendcom.py 使用
+  locale_project: "v3_zh"     # main_project.py 使用
 
 merge_projects:
   海外三相电表平台:

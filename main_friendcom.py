@@ -73,7 +73,7 @@ def main():
     output_dir = args.output or report_cfg.get("output_dir", "./output")
     top_n_bad = report_cfg.get("top_n_bad", 3)
     top_n_good = report_cfg.get("top_n_good", 3)
-    locale = args.locale or report_cfg.get("locale", "v2_zh")
+    locale = args.locale or report_cfg.get("locale_friendcom", "v2_zh")
 
     project_names = None
     if args.projects:

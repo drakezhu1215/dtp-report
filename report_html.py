@@ -22,6 +22,7 @@ TEMPLATE_MAP = {
     "zh": "report_zh.html",
     "v2_en": "report_v2_en.html",
     "v2_zh": "report_v2_zh.html",
+    "v3_zh": "report_v3_zh.html",
 }
 
 

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DTP静态分析违规对比报告</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  h1 { text-align: center; color: #1565c0; margin-bottom: 5px; font-size: 28px; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+  h2 { color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 8px; margin: 30px 0 15px; font-size: 22px; }
+  h3 { color: #333; margin: 20px 0 10px; font-size: 18px; }
+
+  .summary-cards { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; }
+  .card { background: #fff; border-radius: 8px; padding: 18px 22px; flex: 1 1 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .card .label { font-size: 13px; color: #888; letter-spacing: 0.5px; }
+  .card .value { font-size: 28px; font-weight: 700; color: #1565c0; margin-top: 4px; }
+  .card .value.sm { font-size: 18px; }
+  .card.highlight { border-left: 4px solid #d32f2f; }
+  .card.highlight .value { color: #d32f2f; }
+
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  th { background: #1976d2; color: #fff; padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; }
+  td { padding: 10px 15px; border-bottom: 1px solid #eee; font-size: 13px; }
+  tr:hover td { background: #e3f2fd; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .sev1 { color: #d32f2f; font-weight: 700; }
+  .sev2 { color: #f57c00; font-weight: 700; }
+  .sev3 { color: #f9a825; font-weight: 600; }
+  .sev4 { color: #1976d2; }
+  .sev5 { color: #388e3c; }
+
+  .chart-section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .chart-section img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .pie-grid { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
+  .pie-grid .pie-item { flex: 0 1 350px; background: #fafafa; border-radius: 8px; padding: 10px; text-align: center; }
+  .pie-grid .pie-item img { max-width: 100%; }
+
+  .footer { text-align: center; color: #999; font-size: 12px; margin-top: 40px; padding: 15px 0; border-top: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Parasoft代码核查报告</h1>
+<p class="subtitle">生成时间：{{ generated_time }} | DTP服务器：{{ dtp_url }}</p>
+
+<h2>1. 摘要</h2>
+<div class="summary-cards">
+  <div class="card"><div class="label">项目总数</div><div class="value">{{ summary.total_projects }}</div></div>
+  <div class="card"><div class="label">文件总数</div><div class="value sm">{{ summary.latest_project }}</div></div>
+  <div class="card"><div class="label">代码总数</div><div class="value sm">{{ summary.highest_project }}（{{ "{:,}".format(summary.highest_project_count) }}）</div></div>
+  <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ summary.top_category }}（{{ "{:,}".format(summary.top_category_count) }}）</div></div>
+</div>
+
+<h2>2. 项目概览</h2>
+<table>
+  <thead>
+    <tr>
+      <th>序号</th>
+      <th>项目名称</th>
+      <th class="num">文件数</th>
+      <th class="num">代码行数</th>
+      <th class="num">违规</th>
+      <th class="num">抑制</th>
+      <th class="num">合计</th>
+      <th class="num">缺陷密度</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in data %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ d.project_name }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.failed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.failed + d.suppressed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>3. 违规警示榜</h2>
+<div class="chart-section">
+  {% if charts.total %}
+  <img src="data:image/png;base64,{{ charts.total }}" alt="违规总量对比图">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
+
+<h2>4. 合规模范榜</h2>
+<div class="chart-section">
+  {% if charts.total_good %}
+  <img src="data:image/png;base64,{{ charts.total_good }}" alt="合规项目对比图">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
+
+<h2>5. 严重级别明细表</h2>
+<table>
+  <thead>
+    <tr>
+      <th>项目名称</th>
+      {% for sev in severity_order %}
+      <th class="num">{{ severity_labels_zh[sev] }}</th>
+      {% endfor %}
+      <th class="num">合计</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in detail_data %}
+    <tr>
+      <td>{{ d.project_name }}</td>
+      {% for sev in severity_order %}
+      <td class="num sev{{ sev }}">{{ "{:,}".format(d.severity_breakdown.get(sev, 0)) }}</td>
+      {% endfor %}
+      <td class="num"><strong>{{ "{:,}".format(d.failed) }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="footer">
+  DTP静态分析违规对比报告 | 由 dtp_sa_report 工具自动生成
+</div>
+
+</div>
+</body>
+</html>
