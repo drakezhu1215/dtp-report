@@ -52,7 +52,7 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--password", help="DTP password (overrides config)")
     parser.add_argument("--projects", help="Comma-separated project names to analyze (default: all)")
     parser.add_argument("--output", help="Output directory (overrides config)")
-    parser.add_argument("--locale", choices=["zh", "en", "v2_zh", "v2_en"], help="Report language/template: zh, en, v2_zh, v2_en (overrides config)")
+    parser.add_argument("--locale", choices=["zh", "en", "v2_zh", "v2_en", "v3_zh"], help="Report language/template: zh, en, v2_zh, v2_en, v3_zh (overrides config)")
     return parser
 
 

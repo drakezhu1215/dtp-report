@@ -45,7 +45,6 @@ merge_projects:
   国网多APP平台III型专变优化方案(22规范/24规范):
     - stAmr2_gz
   南网智能量测终端(负控、集中器):
-    - dncomm
     - base
     - dncomm
     - upcomm

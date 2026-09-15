@@ -87,8 +87,8 @@
 
 <h2>3. 违规警示榜</h2>
 <div class="chart-section">
-  {% if charts.total %}
-  <img src="data:image/png;base64,{{ charts.total }}" alt="违规总量对比图">
+  {% if charts.total_bad %}
+  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="违规总量对比图">
   {% else %}
   <p>暂无可显示的数据图表。</p>
   {% endif %}

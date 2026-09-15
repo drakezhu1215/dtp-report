@@ -105,7 +105,7 @@ def _plot_total_violations(
     return _fig_to_base64(fig)
 
 
-def chart_total_violations(data: list[ProjectViolations], top_n_bad: int = 3) -> str:
+def chart_total_violations_bad(data: list[ProjectViolations], top_n_bad: int = 3) -> str:
     active = [d for d in data if d.has_data]
     if not active:
         return ""
@@ -139,6 +139,6 @@ def generate_all_charts(
     top_n_good: int = 3,
 ) -> dict:
     charts: dict = {}
-    charts["total"] = chart_total_violations(data, top_n_bad=top_n_bad)
+    charts["total_bad"] = chart_total_violations_bad(data, top_n_bad=top_n_bad)
     charts["total_good"] = chart_total_violations_good(data, top_n_good=top_n_good)
     return charts
