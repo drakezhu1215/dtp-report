@@ -17,7 +17,7 @@ from pathlib import Path
 import yaml
 
 from analyzer import collect_violations
-from chart_builder import generate_all_charts
+from chart_builder import chart_total_violations_bad
 from dtp_client import DTPClient
 from report_excel import generate_excel_report
 from report_html import generate_html_report
@@ -63,7 +63,7 @@ def main():
     cfg = load_config(args.config)
     dtp_cfg = cfg.get("dtp", {})
     report_cfg = cfg.get("report", {})
-    #my define merge_projects
+
     merge_projects = cfg.get("merge_projects", {})
     
 
@@ -72,7 +72,6 @@ def main():
     password = args.password or dtp_cfg.get("password", "admin")
     output_dir = args.output or report_cfg.get("output_dir", "./output")
     top_n_bad = report_cfg.get("top_n_bad", 3)
-    top_n_good = report_cfg.get("top_n_good", 3)
     locale = args.locale or report_cfg.get("locale_project", "v3_zh")
 
     project_names = None
@@ -99,7 +98,8 @@ def main():
         sys.exit(0)
 
     logger.info("Generating charts...")
-    charts = generate_all_charts(merged_violations, top_n_bad=top_n_bad, top_n_good=top_n_good)
+    # report_v3_zh.html 已移除"合规模范榜"章节，仅需生成违规总量对比图（charts.total_bad）
+    charts = {"total_bad": chart_total_violations_bad(merged_violations, top_n_bad=top_n_bad)}
 
     out = Path(output_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

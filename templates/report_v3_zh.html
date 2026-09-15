@@ -44,23 +44,23 @@
 <body>
 <div class="container">
 
-<h1>Parasoft代码核查报告</h1>
+<h1>项目代码核查报告</h1>
 <p class="subtitle">生成时间：{{ generated_time }} | DTP服务器：{{ dtp_url }}</p>
 
 <h2>1. 摘要</h2>
 <div class="summary-cards">
-  <div class="card"><div class="label">项目总数</div><div class="value">{{ summary.total_projects }}</div></div>
   <div class="card"><div class="label">文件总数</div><div class="value sm">{{ summary.latest_project }}</div></div>
   <div class="card"><div class="label">代码总数</div><div class="value sm">{{ summary.highest_project }}（{{ "{:,}".format(summary.highest_project_count) }}）</div></div>
   <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ summary.top_category }}（{{ "{:,}".format(summary.top_category_count) }}）</div></div>
+  <div class="card highlight"><div class="label">缺陷密度</div><div class="value sm">{{ summary.total_projects }}</div></div>
 </div>
 
-<h2>2. 项目概览</h2>
+<h2>2. 仓库概览</h2>
 <table>
   <thead>
     <tr>
       <th>序号</th>
-      <th>项目名称</th>
+      <th>仓库名称</th>
       <th class="num">文件数</th>
       <th class="num">代码行数</th>
       <th class="num">违规</th>
@@ -85,29 +85,20 @@
   </tbody>
 </table>
 
-<h2>3. 违规警示榜</h2>
+<h2>3. 项目趋势图</h2>
 <div class="chart-section">
-  {% if charts.total %}
-  <img src="data:image/png;base64,{{ charts.total }}" alt="违规总量对比图">
+  {% if charts.total_bad %}
+  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="违规总量对比图">
   {% else %}
   <p>暂无可显示的数据图表。</p>
   {% endif %}
 </div>
 
-<h2>4. 合规模范榜</h2>
-<div class="chart-section">
-  {% if charts.total_good %}
-  <img src="data:image/png;base64,{{ charts.total_good }}" alt="合规项目对比图">
-  {% else %}
-  <p>暂无可显示的数据图表。</p>
-  {% endif %}
-</div>
-
-<h2>5. 严重级别明细表</h2>
+<h2>4. 严重级别明细表</h2>
 <table>
   <thead>
     <tr>
-      <th>项目名称</th>
+      <th>仓库名称</th>
       {% for sev in severity_order %}
       <th class="num">{{ severity_labels_zh[sev] }}</th>
       {% endfor %}
