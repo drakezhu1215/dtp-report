@@ -23,7 +23,7 @@ from report_excel import generate_excel_report
 from report_html import generate_html_report
 
 #define my python file 'merge_project.py'
-from merge_project import merge_project_violations
+from merge_project import list_source_projects, merge_project_violations
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,7 +50,7 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--url", help="DTP server URL (overrides config)")
     parser.add_argument("--user", help="DTP username (overrides config)")
     parser.add_argument("--password", help="DTP password (overrides config)")
-    parser.add_argument("--projects", help="Comma-separated project names to analyze (default: all)")
+    parser.add_argument("--projects", help="Comma-separated project names to analyze (default: source projects of merge_projects)")
     parser.add_argument("--output", help="Output directory (overrides config)")
     parser.add_argument("--locale", choices=["zh", "en", "v2_zh", "v2_en", "v3_zh"], help="Report language/template: zh, en, v2_zh, v2_en, v3_zh (overrides config)")
     return parser
@@ -74,18 +74,33 @@ def main():
     top_n_bad = report_cfg.get("top_n_bad", 3)
     locale = args.locale or report_cfg.get("locale_project", "v3_zh")
 
+    # 抓取范围优先级：--projects > report.project_names > merge_projects 的源项目
+    # 解析结果为空时 collect_violations 会回退为扫描 DTP 全部项目（很慢，易超时）
     project_names = None
     if args.projects:
-        project_names = [p.strip() for p in args.projects.split(",")]
+        project_names = [p.strip() for p in args.projects.split(",") if p.strip()]
     elif report_cfg.get("project_names"):
-        project_names = report_cfg["project_names"] 
-    
+        project_names = [str(p).strip() for p in report_cfg["project_names"] if str(p).strip()]
+    else:
+        project_names = list_source_projects(merge_projects)
+
+    if not project_names:
+        logger.warning("No project names resolved, will scan ALL projects on DTP (slow, prone to timeouts).")
+
     logger.info("Connecting to DTP at %s", url)
     client = DTPClient(url=url, username=username, password=password)  
     
     #pdb.set_trace()	#set breakpoint
     data = collect_violations(client, project_names=project_names)
     logger.info("Collected data for %d project(s)", len(data))
+
+    # 配置中的项目名必须与 DTP 项目名完全一致（merge_project 按名称精确匹配）
+    if project_names:
+        returned = {d.project_name for d in data}
+        missing = [name for name in project_names if name not in returned]
+        if missing:
+            preview = ", ".join(missing[:5]) + (" ..." if len(missing) > 5 else "")
+            logger.warning("%d specified project(s) not found on DTP: %s", len(missing), preview)
     
     #debug spln_3p project merge
     merged_violations = merge_project_violations(data,merge_projects,)
