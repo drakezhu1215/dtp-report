@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DTP静态分析违规对比报告</title>
+<title>{% if project_name %}{{ project_name }}{% else %}DTP静态分析违规对比报告{% endif %}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; }
@@ -44,8 +44,8 @@
 <body>
 <div class="container">
 
-<h1>项目代码核查报告</h1>
-<p class="subtitle">生成时间：{{ generated_time }} | DTP服务器：{{ dtp_url }}</p>
+<h1>{% if project_name %}{{ project_name }} 项目代码核查报告{% else %}项目代码核查报告{% endif %}</h1>
+<p class="subtitle">生成时间：{{ generated_time }} | DTP服务器：{{ dtp_url }}{% if project_name %} | 仓库数：{{ data|length }}{% endif %}</p>
 
 <h2>1. 摘要</h2>
 <div class="summary-cards">

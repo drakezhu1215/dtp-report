@@ -78,7 +78,15 @@ def generate_html_report(
     output_path: Path,
     dtp_url: str,
     locale: str = "zh",
+    project_name: str | None = None,
 ) -> Path:
+    """渲染 HTML 报告。
+
+    ``data`` 决定"仓库概览"和"严重级别明细表"的明细行，同时参与"摘要"计算，
+    因此传入"单个项目下的仓库列表"即可得到该项目专属的报告；
+    ``project_name`` 只用于报告标题显示（为 None 时模板保持原有标题，
+    main_friendcom.py 的调用行为完全不变）。
+    """
     template_name = TEMPLATE_MAP.get(locale, "report_zh.html")
 
     template_dir = Path(__file__).parent / "templates"
@@ -97,6 +105,7 @@ def generate_html_report(
     html = template.render(
         generated_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         dtp_url=dtp_url,
+        project_name=project_name,  # 单个项目专属报告时用于标题展示
         data=data,  # 保持原样，给项目概览和其他表用
         detail_data=detail_data,  # 新增，专门给明细表用
         summary=summary,
