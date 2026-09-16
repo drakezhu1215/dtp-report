@@ -52,7 +52,7 @@
   <div class="card"><div class="label">项目总数</div><div class="value">{{ summary.total_projects }}</div></div>
   <div class="card"><div class="label">文件总数</div><div class="value sm">{{ summary.latest_project }}</div></div>
   <div class="card"><div class="label">代码总数</div><div class="value sm">{{ summary.highest_project }}（{{ "{:,}".format(summary.highest_project_count) }}）</div></div>
-  <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ summary.top_category }}（{{ "{:,}".format(summary.top_category_count) }}）</div></div>
+  <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ "{:,}".format(summary.total_failed) }}</div></div>
 </div>
 
 <h2>2. 项目概览</h2>

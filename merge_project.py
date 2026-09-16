@@ -2,12 +2,38 @@
 """merge DTP repository """
 
 from collections import defaultdict
-from analyzer import ProjectViolations, SEVERITY_LABELS
+from analyzer import ProjectViolations
+
+
+def list_source_projects(merge_projects: dict[str, list[str]]) -> list[str]:
+    """列出 merge_projects 中所有源项目名（去重复、去首尾空白，保持配置顺序）。
+
+    未显式指定抓取范围时，用它限定 DTP 查询的项目集合：DTP 上每个 build 都要发
+    total / severity / category 三次请求，全量扫描所有项目极易触发 30s 读超时。
+    """
+    names: list[str] = []
+    seen: set[str] = set()
+
+    for source_projects in (merge_projects or {}).values():
+        for project_name in source_projects or []:
+            clean_name = str(project_name).strip()
+            if clean_name and clean_name not in seen:
+                seen.add(clean_name)
+                names.append(clean_name)
+
+    return names
+
 
 def merge_project_violations(
     violations: list[ProjectViolations],
     merge_projects: dict[str, list[str]],
 ) -> list[ProjectViolations]:
+    """按配置把多个源项目聚合成合并组。
+
+    - group 名（配置的 key）作为合并后的 project_name，各数值字段求和/合并；
+    - 组内一个源项目都没抓到则跳过该组；
+    - 不在 merge_projects 里出现的项目会被忽略（不进入报告）。
+    """
 
     # project_name -> ProjectViolations
     project_map = {
@@ -16,9 +42,6 @@ def merge_project_violations(
     }
 
     result: list[ProjectViolations] = []
-
-    # 记录哪些原始项目已经参与合并
-    merged_source_projects: set[str] = set()
 
     for new_project_name, source_projects in merge_projects.items():
 
@@ -29,7 +52,6 @@ def merge_project_violations(
 
             if item is not None:
                 merged_items.append(item)
-                merged_source_projects.add(project_name)
 
         # 配置了合并关系，但是实际没有找到任何项目
         if not merged_items:
@@ -101,11 +123,4 @@ def merge_project_violations(
 
         result.append(merged_project)
 
-    # ==========================
-    # 6. 保留没有参与合并的项目
-    # ==========================
-    # for item in violations:
-    #     if item.project_name not in merged_source_projects:
-    #         result.append(item)
-    
     return result
