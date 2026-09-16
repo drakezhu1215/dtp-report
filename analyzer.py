@@ -17,6 +17,28 @@ SEVERITY_LABELS = {
 }
 
 
+def calculate_defect_density(failed: int, code_lines: int) -> int:
+    """缺陷密度 = 违规数量 × 1000 / 代码行数，四舍五入后取整。
+
+    - 违规数量取未解决违规（不含 suppressed）；
+    - 单位是"每千行代码（KLOC）的违规数"，所以乘 1000；
+    - 代码行数 <= 0（调用方没开启 ``with_code_lines``，或 DTP 该 build
+      未上报代码度量）时返回 ``0``；
+    - 用 ``Decimal`` + ``ROUND_HALF_UP`` 做四舍五入，避免 Python 内置
+      ``round()`` 的银行家舍入（``round(0.5) == 0``、``round(2.5) == 2``）。
+
+    单个仓库（:attr:`ProjectViolations.defect_density`）和整个项目的摘要
+    （report_html 的汇总卡片）都走这个函数，保证口径一致。
+    """
+    if failed <= 0 or code_lines <= 0:
+        return 0
+
+    density = (
+        Decimal(failed) * 1000 / Decimal(code_lines)
+    ).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return int(density)
+
+
 @dataclass
 class ProjectViolations:
     project_name: str
@@ -42,23 +64,16 @@ class ProjectViolations:
 
         - 违规数量 = ``failed``（报告"违规"列，未解决违规；不含 suppressed）；
         - 代码行数 = ``code_lines``（DTP metrics 物理行数合计）；
-        - 单位是"每千行代码（KLOC）的违规数"，所以乘 1000；
-        - 代码行数为 0（调用方没开启 ``with_code_lines``，或 DTP 该 build
-          未上报代码度量）时缺省为 ``0``；该项目本身没有静态分析数据
-          （``has_data`` 为 False）时同样是 0；
-        - 用 ``Decimal`` + ``ROUND_HALF_UP`` 做四舍五入，避免 Python 内置
-          ``round()`` 的银行家舍入（``round(0.5) == 0``、``round(2.5) == 2``）。
+        - 计算与取整规则见 :func:`calculate_defect_density`；
+        - 该项目本身没有静态分析数据（``has_data`` 为 False）时返回 0。
 
         合并组（merge_project.merge_project_violations）不需要额外处理：
         它合并了 failed / code_lines，本属性按合并后的值计算。
         """
-        if not self.has_data or self.code_lines <= 0:
+        if not self.has_data:
             return 0
 
-        density = (
-            Decimal(self.failed) * 1000 / Decimal(self.code_lines)
-        ).quantize(Decimal(1), rounding=ROUND_HALF_UP)
-        return int(density)
+        return calculate_defect_density(self.failed, self.code_lines)
 
 
 def collect_violations(
