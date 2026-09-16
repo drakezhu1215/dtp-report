@@ -92,8 +92,35 @@ def main():
     client = DTPClient(url=url, username=username, password=password)  
     
     #pdb.set_trace()	#set breakpoint
-    data = collect_violations(client, project_names=project_names)
-    logger.info("Collected data for %d project(s)", len(data))
+    # with_file_count=True: 额外从 DTP 查询每个仓库"扫描的源文件数"（/staticAnalysisFiles），
+    #                       用于报告摘要的"文件总数"和项目概览的"文件数"；
+    # with_code_lines=True: 额外从 DTP 查询每个仓库"代码行数"（metrics 指标 METRIC.NOPLIF），
+    #                       用于报告摘要的"代码总数"和项目概览的"代码行数"。
+    # （main_project.py 不传这两个开关，行为不受影响）
+    data = collect_violations(
+        client,
+        project_names=project_names,
+        with_file_count=True,
+        with_code_lines=True,
+    )
+    logger.info("Collected data for %d project(s) (raw, before merging)", len(data))
+    logger.info(
+        "Raw total over projects with data: scanned files=%d, code lines=%d "
+        "(merged report total may be larger when one repo belongs to several groups)",
+        sum(d.file_count for d in data if d.has_data),
+        sum(d.code_lines for d in data if d.has_data),
+    )
+
+    # 有静态分析数据、但 DTP 该 build 未上报任何代码度量（metrics/types 为空）时，
+    # 代码行数会是 0，报告中该行显示"无数据"——这里列出来，避免被当成"真的 0 行"。
+    no_loc = [d.project_name for d in data if d.has_data and d.code_lines == 0]
+    if no_loc:
+        preview = ", ".join(no_loc[:10]) + (" ..." if len(no_loc) > 10 else "")
+        logger.warning(
+            "%d project(s) have static analysis data but no code-lines metric "
+            "(the build reported no metrics): %s",
+            len(no_loc), preview,
+        )
 
     # 配置中的项目名必须与 DTP 项目名完全一致（merge_project 按名称精确匹配）
     if project_names:
@@ -112,6 +139,13 @@ def main():
     if not active:
         logger.warning("No projects with static analysis data found.")
         sys.exit(0)
+
+    logger.info(
+        "Report totals across %d merged project(s): scanned files=%d, code lines=%d",
+        len(active),
+        sum(d.file_count for d in active),
+        sum(d.code_lines for d in active),
+    )
 
     logger.info("Generating charts...")
     charts = generate_all_charts(merged_violations, top_n_bad=top_n_bad, top_n_good=top_n_good)

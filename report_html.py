@@ -43,6 +43,12 @@ def _build_summary(data: list[ProjectViolations]) -> dict:
     active = [d for d in data if d.has_data]
     total_failed = sum(d.failed for d in active)
     total_suppressed = sum(d.suppressed for d in active)
+    # 文件总数 = 各项目（合并后的项目）文件数合计；
+    # file_count 由 collect_violations(with_file_count=True) 从 DTP /staticAnalysisFiles 取得
+    total_files = sum(d.file_count for d in active)
+    # 代码总数 = 各项目代码行数合计；
+    # code_lines 由 collect_violations(with_code_lines=True) 从 DTP metrics 指标取得
+    total_code_lines = sum(d.code_lines for d in active)
 
     highest_proj = max(active, key=lambda d: d.failed) if active else None
     highest_project = highest_proj.project_name if highest_proj else "N/A"
@@ -64,6 +70,8 @@ def _build_summary(data: list[ProjectViolations]) -> dict:
         "projects_with_data": len(active),
         "total_failed": total_failed,
         "total_suppressed": total_suppressed,
+        "total_files": total_files,
+        "total_code_lines": total_code_lines,
         "highest_project": highest_project,
         "highest_project_count": highest_project_count,
         "latest_project": latest_project,

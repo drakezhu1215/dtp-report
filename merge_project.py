@@ -119,6 +119,24 @@ def merge_project_violations(
         )
 
         # ==========================
+        # 2.1 合并文件数（DTP 扫描的源文件数）
+        # ==========================
+
+        file_count = sum(
+            item.file_count
+            for item in merged_items
+        )
+
+        # ==========================
+        # 2.2 合并代码行数（DTP metrics 指标合计）
+        # ==========================
+
+        code_lines = sum(
+            item.code_lines
+            for item in merged_items
+        )
+
+        # ==========================
         # 3. 合并 severity_breakdown
         # ==========================
 
@@ -154,6 +172,8 @@ def merge_project_violations(
             has_data=has_data,
             failed=failed,
             suppressed=suppressed,
+            file_count=file_count,
+            code_lines=code_lines,
 
             severity_breakdown=dict(severity_breakdown),
             category_breakdown=dict(category_breakdown),
