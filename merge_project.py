@@ -24,6 +24,44 @@ def list_source_projects(merge_projects: dict[str, list[str]]) -> list[str]:
     return names
 
 
+def group_project_violations(
+    violations: list[ProjectViolations],
+    merge_projects: dict[str, list[str]],
+) -> list[tuple[str, list[ProjectViolations]]]:
+    """按配置把源项目按合并组分组（不做数值合并）。
+
+    返回值是 ``[(组名, [该组的源项目数据, ...]), ...]``：
+
+    - 组名（配置的 key，如 "海外三相电表平台"）作为项目名，组内元素是该项目下
+      各个仓库（如 spln_3p_application ...）的原始 ProjectViolations；
+    - 组内顺序与 merge_projects 中配置的源项目顺序一致；
+    - DTP 上不存在的源项目被跳过；一个源项目都没抓到的组不出现在结果里。
+
+    与 merge_project_violations 的区别：这里不把多个仓库求和成一个虚拟项目，
+    供 "每个项目一份报告、报告内按仓库列明细" 的场景使用。
+    """
+    project_map = {
+        item.project_name: item
+        for item in violations
+    }
+
+    grouped: list[tuple[str, list[ProjectViolations]]] = []
+
+    for project_name, source_projects in (merge_projects or {}).items():
+        merged_items = [
+            project_map[name]
+            for name in (source_projects or [])
+            if name in project_map
+        ]
+
+        if not merged_items:
+            continue
+
+        grouped.append((project_name, merged_items))
+
+    return grouped
+
+
 def merge_project_violations(
     violations: list[ProjectViolations],
     merge_projects: dict[str, list[str]],
