@@ -212,8 +212,34 @@ def main():
     logger.info("Connecting to DTP at %s", url)
     client = DTPClient(url=url, username=username, password=password)  
     
-    data = collect_violations(client, project_names=project_names)
+    # with_file_count=True: 额外从 DTP 查询每个仓库"扫描的源文件数"（/staticAnalysisFiles），
+    #                       用于报告摘要的"文件总数"和仓库概览的"文件数"；
+    # with_code_lines=True: 额外从 DTP 查询每个仓库"代码行数"（metrics 指标 METRIC.NOPLIF），
+    #                       用于报告摘要的"代码总数"和仓库概览的"代码行数"。
+    # 两个开关都开启后，摘要/仓库概览的"缺陷密度"才有意义（= 违规数 × 1000 / 代码行数）。
+    data = collect_violations(
+        client,
+        project_names=project_names,
+        with_file_count=True,
+        with_code_lines=True,
+    )
     logger.info("Collected data for %d project(s)", len(data))
+    logger.info(
+        "Raw total over projects with data: scanned files=%d, code lines=%d",
+        sum(d.file_count for d in data if d.has_data),
+        sum(d.code_lines for d in data if d.has_data),
+    )
+
+    # 有静态分析数据、但 DTP 该 build 未上报任何代码度量（metrics/types 为空）时，
+    # 代码行数会是 0，仓库概览里该行显示"无数据"——这里列出来，避免被当成"真的 0 行"。
+    no_loc = [d.project_name for d in data if d.has_data and d.code_lines == 0]
+    if no_loc:
+        preview = ", ".join(no_loc[:10]) + (" ..." if len(no_loc) > 10 else "")
+        logger.warning(
+            "%d repo(s) have static analysis data but no code-lines metric "
+            "(the build reported no metrics): %s",
+            len(no_loc), preview,
+        )
 
     warn_missing_projects(data, project_names)
     

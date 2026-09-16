@@ -49,10 +49,12 @@
 
 <h2>1. 摘要</h2>
 <div class="summary-cards">
-  <div class="card"><div class="label">文件总数</div><div class="value sm">{{ summary.latest_project }}</div></div>
-  <div class="card"><div class="label">代码总数</div><div class="value sm">{{ summary.highest_project }}（{{ "{:,}".format(summary.highest_project_count) }}）</div></div>
+  {# 文件总数 / 代码总数 = 该项目下所有仓库的合计（report_html._build_summary 汇总） #}
+  <div class="card"><div class="label">文件总数</div><div class="value sm">{{ "{:,}".format(summary.total_files) }}</div></div>
+  <div class="card"><div class="label">代码总数</div><div class="value sm">{{ "{:,}".format(summary.total_code_lines) }}</div></div>
   <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ "{:,}".format(summary.total_failed) }}</div></div>
-  <div class="card highlight"><div class="label">缺陷密度</div><div class="value sm">{{ summary.total_projects }}</div></div>
+  {# 缺陷密度 = 违规总数 × 1000 / 代码总数，四舍五入取整；代码总数为 0 或缺数据时为 0 #}
+  <div class="card highlight"><div class="label">缺陷密度</div><div class="value sm">{{ "{:,}".format(summary.total_defect_density) }}</div></div>
 </div>
 
 <h2>2. 仓库概览</h2>
@@ -74,27 +76,21 @@
     <tr>
       <td>{{ loop.index }}</td>
       <td>{{ d.project_name }}</td>
-      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
-      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+      {# 文件数来自 DTP /staticAnalysisFiles（扫描的源文件数），缺数据时显示"无数据" #}
+      <td class="num">{{ "{:,}".format(d.file_count) if d.has_data else "无数据" }}</td>
+      {# 代码行数来自 DTP metrics 指标；若该 build 未上报指标(值为 0)则显示"无数据" #}
+      <td class="num">{{ "{:,}".format(d.code_lines) if d.code_lines else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.failed) if d.has_data else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.failed + d.suppressed) if d.has_data else "无数据" }}</td>
-      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+      {# 缺陷密度 = 该仓库违规数量 × 1000 / 该仓库代码行数，四舍五入取整；代码行数为 0 或缺数据时为 0 #}
+      <td class="num">{{ "{:,}".format(d.defect_density) }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 
-<h2>3. 项目趋势图</h2>
-<div class="chart-section">
-  {% if charts.total_bad %}
-  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="违规总量对比图">
-  {% else %}
-  <p>暂无可显示的数据图表。</p>
-  {% endif %}
-</div>
-
-<h2>4. 严重级别明细表</h2>
+<h2>3. 严重级别明细表</h2>
 <table>
   <thead>
     <tr>
@@ -117,6 +113,15 @@
     {% endfor %}
   </tbody>
 </table>
+
+<h2>4. 项目趋势图</h2>
+<div class="chart-section">
+  {% if charts.total_bad %}
+  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="违规总量对比图">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
 
 <div class="footer">
   DTP静态分析违规对比报告 | 由 dtp_sa_report 工具自动生成

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from analyzer import ProjectViolations, SEVERITY_LABELS
+from analyzer import ProjectViolations, SEVERITY_LABELS, calculate_defect_density
 from chart_builder import SEVERITY_ORDER, SEVERITY_SHORT
 
 SEVERITY_LABELS_ZH = {
@@ -49,6 +49,9 @@ def _build_summary(data: list[ProjectViolations]) -> dict:
     # 代码总数 = 各项目代码行数合计；
     # code_lines 由 collect_violations(with_code_lines=True) 从 DTP metrics 指标取得
     total_code_lines = sum(d.code_lines for d in active)
+    # 项目级缺陷密度 = 违规总数 × 1000 / 代码总数，四舍五入取整；
+    # 与单个仓库的 defect_density 用同一个函数，口径一致
+    total_defect_density = calculate_defect_density(total_failed, total_code_lines)
 
     highest_proj = max(active, key=lambda d: d.failed) if active else None
     highest_project = highest_proj.project_name if highest_proj else "N/A"
@@ -72,6 +75,7 @@ def _build_summary(data: list[ProjectViolations]) -> dict:
         "total_suppressed": total_suppressed,
         "total_files": total_files,
         "total_code_lines": total_code_lines,
+        "total_defect_density": total_defect_density,
         "highest_project": highest_project,
         "highest_project_count": highest_project_count,
         "latest_project": latest_project,
