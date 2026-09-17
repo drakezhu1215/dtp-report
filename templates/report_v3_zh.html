@@ -34,6 +34,7 @@
 
   .chart-section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
   .chart-section img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .chart-note { font-size: 12px; color: #888; margin-top: 10px; line-height: 1.8; word-break: break-all; }
   .pie-grid { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
   .pie-grid .pie-item { flex: 0 1 350px; background: #fafafa; border-radius: 8px; padding: 10px; text-align: center; }
   .pie-grid .pie-item img { max-width: 100%; }
@@ -115,13 +116,31 @@
 </table>
 
 <h2>4. 项目趋势图</h2>
+
+<h3>4.1 各仓库违规数量对比</h3>
 <div class="chart-section">
   {% if charts.total_bad %}
-  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="违规总量对比图">
+  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="各仓库违规数量对比图">
   {% else %}
   <p>暂无可显示的数据图表。</p>
   {% endif %}
 </div>
+
+<h3>4.2 各仓库违规数量趋势（按构建次序）</h3>
+{# 有几个仓库就有几张趋势图：X 轴是构建次序 build-1、build-2 ...，Y 轴是那次构建的违规数量 #}
+{% if charts.repo_trends %}
+  {% for trend in charts.repo_trends %}
+  <div class="chart-section">
+    <h3>{{ loop.index }}. {{ trend.name }}（共 {{ trend.build_count }} 次构建）</h3>
+    <img src="data:image/png;base64,{{ trend.image }}" alt="{{ trend.name }} 违规数量趋势图">
+    {% if trend.note %}<p class="chart-note">{{ trend.note }}</p>{% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="chart-section">
+    <p>暂无可显示的趋势数据：该项目下的仓库没有可用的历史构建记录。</p>
+  </div>
+{% endif %}
 
 <div class="footer">
   DTP静态分析违规对比报告 | 由 dtp_sa_report 工具自动生成
