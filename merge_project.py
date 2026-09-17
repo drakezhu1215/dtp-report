@@ -62,6 +62,31 @@ def group_project_violations(
     return grouped
 
 
+def unique_repo_violations(
+    groups: list[tuple[str, list[ProjectViolations]]],
+) -> list[ProjectViolations]:
+    """把分组结果里出现过的仓库去重后展开成一个列表（按分组出现的先后顺序）。
+
+    一个仓库可能同时属于多个项目组（配置里 dual_mode_cco 就同时属于
+    "国网营销双模湖南扩展协议" 和 "国网营销双模能源控制器(专变)模块"）。
+    报告里每个项目各画一张趋势图，但抓取趋势数据时只应该抓一次，
+    所以先用本函数去重，再交给 analyzer.collect_build_trends。
+
+    以 ``filter_id`` 判断是否为同一个仓库（DTP 里 Filter 与仓库一一对应）。
+    """
+    result: list[ProjectViolations] = []
+    seen: set[int] = set()
+
+    for _, repo_data in groups or []:
+        for repo in repo_data or []:
+            if repo.filter_id in seen:
+                continue
+            seen.add(repo.filter_id)
+            result.append(repo)
+
+    return result
+
+
 def merge_project_violations(
     violations: list[ProjectViolations],
     merge_projects: dict[str, list[str]],
