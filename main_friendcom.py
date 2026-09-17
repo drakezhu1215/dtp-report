@@ -42,6 +42,15 @@ def load_config(config_path: str) -> dict:
         return yaml.safe_load(f)
 
 
+# 报告文件名前缀：Friendcom_20260916_173616.html / .xlsx
+REPORT_FILE_PREFIX = "Friendcom"
+
+
+def build_report_base_name(timestamp: str) -> str:
+    """报告文件名（不含扩展名）：Friendcom_<YYYYmmdd_HHMMSS>。"""
+    return f"{REPORT_FILE_PREFIX}_{timestamp}"
+
+
 def build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="DTP Static Analysis Violations Comparison Report Generator",
@@ -160,15 +169,17 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     logger.info("Output directory ready: %s", out.resolve())
 
+    base_name = build_report_base_name(timestamp)
+
     logger.info("Generating HTML report (locale=%s)...", locale)
     html_path = generate_html_report(
-        merged_violations, charts, out / f"dtp_sa_report_{timestamp}.html",
+        merged_violations, charts, out / f"{base_name}.html",
         dtp_url=url, locale=locale,
     )
     logger.info("HTML report: %s", html_path)
 
     logger.info("Generating Excel report...")
-    xlsx_path = generate_excel_report(merged_violations, out / f"dtp_sa_report_{timestamp}.xlsx")
+    xlsx_path = generate_excel_report(merged_violations, out / f"{base_name}.xlsx")
     logger.info("Excel report: %s", xlsx_path)
 
     logger.info("Done! Reports generated in %s", out.resolve())

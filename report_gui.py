@@ -160,7 +160,6 @@ class ReportApp:
             "url": tk.StringVar(value="-"),
             "output": tk.StringVar(value="-"),
             "locale": tk.StringVar(value="-"),
-            "trend": tk.StringVar(value="-"),
         }
 
         rows = (
@@ -168,14 +167,13 @@ class ReportApp:
             ("DTP 服务器", "url"),
             ("输出目录", "output"),
             ("报告模板", "locale"),
-            ("趋势构建数", "trend"),
         )
         for row_index, (label, key) in enumerate(rows):
             ttk.Label(frame, text=f"{label}：").grid(row=row_index, column=0, sticky="w", padx=(0, 6))
             ttk.Label(frame, textvariable=self.info_vars[key]).grid(row=row_index, column=1, sticky="w")
 
         ttk.Button(frame, text="重新加载配置", command=self._reload_config).grid(
-            row=0, column=2, rowspan=5, sticky="e", padx=(10, 0)
+            row=0, column=2, rowspan=len(rows), sticky="e", padx=(10, 0)
         )
 
     def _build_project_frame(self, parent: ttk.Frame) -> None:
@@ -321,7 +319,6 @@ class ReportApp:
         self.info_vars["url"].set(str(dtp_cfg.get("url", "-")))
         self.info_vars["output"].set(str(Path(self.output_dir).resolve()))
         self.info_vars["locale"].set(str(report_cfg.get("locale_project", "v3_zh")))
-        self.info_vars["trend"].set(f"{report_cfg.get('trend_builds', 10)} 次/仓库")
 
         self._rebuild_project_menu()
         self.log_queue.put(

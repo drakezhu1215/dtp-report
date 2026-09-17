@@ -7,7 +7,7 @@ report:
   output_dir: "./output"
   project_names: []
   top_n_bad: 3                # main_friendcom.py 跨项目对比图：显示违规最多的前 N 个项目
-                              # （main_project.py 的项目报告 4.1 图固定显示该项目下全部仓库，不受此项影响）
+                              # （main_project.py 的项目报告第 4 章"项目违规图"固定显示该项目下全部仓库，不受此项影响）
   top_n_good: 3
   trend_builds: 10            # main_project.py 趋势图：每个仓库取最近多少次构建（0=不生成趋势图）
   locale_friendcom: "v2_zh"   # main_friendcom.py 使用
@@ -70,7 +70,7 @@ merge_projects:
     - sta_yuenan_ami
   低功耗场域网终端平台:
     - _LifecycleMicroservice
-    -  _Runtime
+    - _Runtime
     - _Container1
   FG23L低成本WM-Bus:
     - wmbus_fg23l
