@@ -115,23 +115,21 @@
   </tbody>
 </table>
 
-<h2>4. 项目趋势图</h2>
-
-<h3>4.1 各仓库违规数量对比</h3>
+<h2>4. 项目违规图</h2>
 <div class="chart-section">
   {% if charts.total_bad %}
-  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="各仓库违规数量对比图">
+  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="项目违规图（各仓库违规数量对比）">
   {% else %}
   <p>暂无可显示的数据图表。</p>
   {% endif %}
 </div>
 
-<h3>4.2 各仓库违规数量趋势（按构建次序）</h3>
+<h2>5. 项目趋势图</h2>
 {# 有几个仓库就有几张趋势图：X 轴是构建次序 build-1、build-2 ...，Y 轴是那次构建的违规数量 #}
 {% if charts.repo_trends %}
   {% for trend in charts.repo_trends %}
   <div class="chart-section">
-    <h3>{{ loop.index }}. {{ trend.name }}（共 {{ trend.build_count }} 次构建）</h3>
+    <h3>5.{{ loop.index }} {{ trend.name }}（共 {{ trend.build_count }} 次构建）</h3>
     <img src="data:image/png;base64,{{ trend.image }}" alt="{{ trend.name }} 违规数量趋势图">
     {% if trend.note %}<p class="chart-note">{{ trend.note }}</p>{% endif %}
   </div>

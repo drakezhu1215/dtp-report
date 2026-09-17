@@ -133,7 +133,7 @@ def chart_total_violations_bad(
         return ""
 
     # 按未解决违规数 failed 降序排列；top_n_bad <= 0 表示"不截断，显示全部对象"
-    # （main_project.py 的项目报告要求 4.1 图里列出该项目下的所有仓库）
+    # （main_project.py 的项目报告第 4 章"项目违规图"里要列出该项目下的所有仓库）
     active = sorted(active, key=lambda d: d.failed, reverse=True)
     if top_n_bad > 0:
         active = active[:top_n_bad]
