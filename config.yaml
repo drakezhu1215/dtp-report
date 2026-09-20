@@ -69,9 +69,9 @@ merge_projects:
     - cco_yuenan_ami
     - sta_yuenan_ami
   低功耗场域网终端平台:
-    - _LifecycleMicroservice
-    - _Runtime
-    - _Container1
+    - fc2601lw_Container1
+    - fc2601lw_LifecycleMicro
+    - fc2601lw_Runtime
   FG23L低成本WM-Bus:
     - wmbus_fg23l
   工商业超声波燃气计量模组&整机:

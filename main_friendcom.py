@@ -23,7 +23,12 @@ from report_excel import generate_excel_report
 from report_html import generate_html_report
 
 #define my python file 'merge_project.py'
-from merge_project import list_source_projects, merge_project_violations
+from merge_project import (
+    group_project_violations,
+    list_source_projects,
+    merge_project_violations,
+    unique_repo_violations,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -149,11 +154,27 @@ def main():
         logger.warning("No projects with static analysis data found.")
         sys.exit(0)
 
+    # 报告摘要的统计口径：按“唯一仓库”去重（一个仓库可能同时属于多个项目组，
+    # 见 config.yaml 的 dual_mode_cco），避免同一个仓库的文件数/代码行数被重复计入总量。
+    # 项目概览表和图表仍然按合并组逐行展示（同一仓库会在不同组里各出现一次）。
+    summary_repos = [
+        d for d in unique_repo_violations(group_project_violations(data, merge_projects))
+        if d.has_data
+    ]
+
     logger.info(
-        "Report totals across %d merged project(s): scanned files=%d, code lines=%d",
+        "Report totals across %d merged project(s): scanned files=%d, code lines=%d "
+        "(group sum, a repo in several groups is counted once per group)",
         len(active),
         sum(d.file_count for d in active),
         sum(d.code_lines for d in active),
+    )
+    logger.info(
+        "Report summary totals across %d unique repo(s) (used for the report cards): "
+        "scanned files=%d, code lines=%d",
+        len(summary_repos),
+        sum(d.file_count for d in summary_repos),
+        sum(d.code_lines for d in summary_repos),
     )
 
     logger.info("Generating charts...")
@@ -175,6 +196,8 @@ def main():
     html_path = generate_html_report(
         merged_violations, charts, out / f"{base_name}.html",
         dtp_url=url, locale=locale,
+        # 摘要卡按唯一仓库口径统计（项目概览表仍按合并组逐行展示）
+        summary_source=summary_repos,
     )
     logger.info("HTML report: %s", html_path)
 
