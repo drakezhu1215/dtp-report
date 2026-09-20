@@ -39,16 +39,38 @@ def _build_sort_key(d: ProjectViolations) -> tuple:
         return (1, str(bid))
 
 
-def _build_summary(data: list[ProjectViolations]) -> dict:
+def _build_summary(
+    data: list[ProjectViolations],
+    summary_source: list[ProjectViolations] | None = None,
+) -> dict:
+    """汇总报告摘要。
+
+    ``data`` 是报告里逐行列出的数据；``summary_source`` 可选，只用来决定
+    \"文件总数 / 代码总数 / 违规总数 / 已抑制 / 缺陷密度\" 这几张汇总卡的**统计口径**。
+
+    main_friendcom.py 传的是\"唯一仓库列表\"（按 filter_id 去重后的仓库）：
+    一个仓库可能同时属于多个项目组（如 config.yaml 的 dual_mode_cco 同时属于
+    \"国网营销双模湖南扩展协议\" 和 \"国网营销双模能源控制器(专变)模块\"），
+    项目概览表里它会按组各列一行，但公司级的总量不能把这些文件/代码行重复计入。
+    ``summary_source`` 为 None 时按 ``data`` 统计（main_project.py 的调用行为不变）。
+
+    其余字段（total_projects / projects_with_data / highest_project / latest_project
+    / top_category）仍然描述\"报告里逐行列出的条目\"，不受 ``summary_source`` 影响。
+    """
     active = [d for d in data if d.has_data]
-    total_failed = sum(d.failed for d in active)
-    total_suppressed = sum(d.suppressed for d in active)
-    # 文件总数 = 各项目（合并后的项目）文件数合计；
+    # 汇总卡的数据来源：未指定 summary_source 时就是逐行列出的数据本身
+    totals = [
+        d for d in (summary_source if summary_source is not None else data) if d.has_data
+    ]
+
+    total_failed = sum(d.failed for d in totals)
+    total_suppressed = sum(d.suppressed for d in totals)
+    # 文件总数 = 去重后各仓库的文件数合计；
     # file_count 由 collect_violations(with_file_count=True) 从 DTP /staticAnalysisFiles 取得
-    total_files = sum(d.file_count for d in active)
-    # 代码总数 = 各项目代码行数合计；
+    total_files = sum(d.file_count for d in totals)
+    # 代码总数 = 去重后各仓库的代码行数合计；
     # code_lines 由 collect_violations(with_code_lines=True) 从 DTP metrics 指标取得
-    total_code_lines = sum(d.code_lines for d in active)
+    total_code_lines = sum(d.code_lines for d in totals)
     # 项目级缺陷密度 = 违规总数 × 1000 / 代码总数，四舍五入取整；
     # 与单个仓库的 defect_density 用同一个函数，口径一致
     total_defect_density = calculate_defect_density(total_failed, total_code_lines)
@@ -91,13 +113,18 @@ def generate_html_report(
     dtp_url: str,
     locale: str = "zh",
     project_name: str | None = None,
+    summary_source: list[ProjectViolations] | None = None,
 ) -> Path:
     """渲染 HTML 报告。
 
     ``data`` 决定"仓库概览"和"严重级别明细表"的明细行，同时参与"摘要"计算，
     因此传入"单个项目下的仓库列表"即可得到该项目专属的报告；
     ``project_name`` 只用于报告标题显示（为 None 时模板保持原有标题，
-    main_friendcom.py 的调用行为完全不变）。
+    main_friendcom.py 的调用行为完全不变）；
+    ``summary_source`` 可选，只用来决定摘要里"文件总数 / 代码总数 / 违规总数 /
+    缺陷密度"等汇总卡的统计口径——main_friendcom.py 传"唯一仓库列表"（按
+    ``filter_id`` 去重），避免一个仓库属于多个项目组时被重复计入总量；
+    为 None 时摘要仍按 ``data`` 统计。
     """
     template_name = TEMPLATE_MAP.get(locale, "report_zh.html")
 
@@ -105,7 +132,7 @@ def generate_html_report(
     env = Environment(loader=FileSystemLoader(str(template_dir)), autoescape=True)
     template = env.get_template(template_name)
 
-    summary = _build_summary(data)
+    summary = _build_summary(data, summary_source)
 
     # 只对明细表排序，不影响其他表（有严重级别明细的项目、按违规数降序）
     detail_data = sorted(
