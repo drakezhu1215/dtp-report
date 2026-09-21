@@ -23,6 +23,7 @@ TEMPLATE_MAP = {
     "v2_en": "report_v2_en.html",
     "v2_zh": "report_v2_zh.html",
     "v3_zh": "report_v3_zh.html",
+    "v4_zh": "report_v4_zh.html",
 }
 
 
@@ -114,17 +115,20 @@ def generate_html_report(
     locale: str = "zh",
     project_name: str | None = None,
     summary_source: list[ProjectViolations] | None = None,
+    developer_name: str | None = None,
 ) -> Path:
     """渲染 HTML 报告。
 
-    ``data`` 决定"仓库概览"和"严重级别明细表"的明细行，同时参与"摘要"计算，
+    ``data`` 决定"项目概览"和"严重级别明细表"的明细行，同时参与"摘要"计算，
     因此传入"单个项目下的仓库列表"即可得到该项目专属的报告；
     ``project_name`` 只用于报告标题显示（为 None 时模板保持原有标题，
     main_friendcom.py 的调用行为完全不变）；
     ``summary_source`` 可选，只用来决定摘要里"文件总数 / 代码总数 / 违规总数 /
     缺陷密度"等汇总卡的统计口径——main_friendcom.py 传"唯一仓库列表"（按
     ``filter_id`` 去重），避免一个仓库属于多个项目组时被重复计入总量；
-    为 None 时摘要仍按 ``data`` 统计。
+    为 None 时摘要仍按 ``data`` 统计；
+    ``developer_name`` 只在开发者报告（report_v4_zh.html）里用：非空时标题变成
+    "``<开发者>`` 开发者代码核查报告"，``project_name`` 优先，两者都不传时保持原样。
     """
     template_name = TEMPLATE_MAP.get(locale, "report_zh.html")
 
@@ -145,6 +149,7 @@ def generate_html_report(
         generated_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         dtp_url=dtp_url,
         project_name=project_name,  # 单个项目专属报告时用于标题展示
+        developer_name=developer_name,  # 单个开发者专属报告时用于标题展示
         data=data,  # 保持原样，给项目概览和其他表用
         detail_data=detail_data,  # 新增，专门给明细表用
         summary=summary,

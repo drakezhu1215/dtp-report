@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% if developer_name %}{{ developer_name }} 开发者代码核查报告{% elif project_name %}{{ project_name }}{% else %}DTP静态分析违规对比报告{% endif %}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei", "Segoe UI", "Helvetica Neue", Arial, sans-serif; background: #f5f5f5; color: #333; line-height: 1.6; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+  h1 { text-align: center; color: #1565c0; margin-bottom: 5px; font-size: 28px; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+  h2 { color: #1976d2; border-bottom: 2px solid #1976d2; padding-bottom: 8px; margin: 30px 0 15px; font-size: 22px; }
+  h3 { color: #333; margin: 20px 0 10px; font-size: 18px; }
+
+  .summary-cards { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; }
+  .card { background: #fff; border-radius: 8px; padding: 18px 22px; flex: 1 1 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .card .label { font-size: 13px; color: #888; letter-spacing: 0.5px; }
+  .card .value { font-size: 28px; font-weight: 700; color: #1565c0; margin-top: 4px; }
+  .card .value.sm { font-size: 18px; }
+  .card.highlight { border-left: 4px solid #d32f2f; }
+  .card.highlight .value { color: #d32f2f; }
+
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-bottom: 20px; }
+  th { background: #1976d2; color: #fff; padding: 12px 15px; text-align: left; font-weight: 600; font-size: 13px; }
+  td { padding: 10px 15px; border-bottom: 1px solid #eee; font-size: 13px; }
+  tr:hover td { background: #e3f2fd; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .sev1 { color: #d32f2f; font-weight: 700; }
+  .sev2 { color: #f57c00; font-weight: 700; }
+  .sev3 { color: #f9a825; font-weight: 600; }
+  .sev4 { color: #1976d2; }
+  .sev5 { color: #388e3c; }
+
+  .chart-section { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  .chart-section img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .chart-note { font-size: 12px; color: #888; margin-top: 10px; line-height: 1.8; word-break: break-all; }
+  .pie-grid { display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
+  .pie-grid .pie-item { flex: 0 1 350px; background: #fafafa; border-radius: 8px; padding: 10px; text-align: center; }
+  .pie-grid .pie-item img { max-width: 100%; }
+
+  .footer { text-align: center; color: #999; font-size: 12px; margin-top: 40px; padding: 15px 0; border-top: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>{% if developer_name %}{{ developer_name }} 开发者代码核查报告{% elif project_name %}{{ project_name }} 项目代码核查报告{% else %}项目代码核查报告{% endif %}</h1>
+{# 开发者报告：标题显示开发者名，副标题额外标出"开发者"和该开发者相关的仓库数 #}
+<p class="subtitle">生成时间：{{ generated_time }} | DTP服务器：{{ dtp_url }}{% if developer_name %} | 开发者：{{ developer_name }} | 相关仓库数：{{ data|length }}{% elif project_name %} | 仓库数：{{ data|length }}{% endif %}</p>
+
+<h2>1. 摘要</h2>
+<div class="summary-cards">
+  {# 文件总数 / 代码总数 = 与开发者相关的所有仓库的合计（report_html._build_summary 汇总）：
+     DTP 的文件数/代码行数没有作者维度，这里是"整仓"数字；
+     违规总数则是"该作者"的违规合计，缺陷密度按两者相除 #}
+  <div class="card"><div class="label">文件总数</div><div class="value sm">{{ "{:,}".format(summary.total_files) }}</div></div>
+  <div class="card"><div class="label">代码总数</div><div class="value sm">{{ "{:,}".format(summary.total_code_lines) }}</div></div>
+  <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ "{:,}".format(summary.total_failed) }}</div></div>
+  {# 缺陷密度 = 违规总数 × 1000 / 代码总数，四舍五入取整；代码总数为 0 或缺数据时为 0 #}
+  <div class="card highlight"><div class="label">缺陷密度</div><div class="value sm">{{ "{:,}".format(summary.total_defect_density) }}</div></div>
+</div>
+
+<h2>2. 开发者概览</h2>
+<table>
+  <thead>
+    <tr>
+      <th>序号</th>
+      <th>仓库名称</th>
+      <th class="num">文件数</th>
+      <th class="num">代码行数</th>
+      <th class="num">违规</th>
+      <th class="num">抑制</th>
+      <th class="num">合计</th>
+      <th class="num">缺陷密度</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in data %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ d.project_name }}</td>
+      {# 文件数来自 DTP /staticAnalysisFiles（扫描的源文件数），缺数据时显示"无数据" #}
+      <td class="num">{{ "{:,}".format(d.file_count) if d.has_data else "无数据" }}</td>
+      {# 代码行数来自 DTP metrics 指标；若该 build 未上报指标(值为 0)则显示"无数据" #}
+      <td class="num">{{ "{:,}".format(d.code_lines) if d.code_lines else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.failed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
+      <td class="num">{{ "{:,}".format(d.failed + d.suppressed) if d.has_data else "无数据" }}</td>
+      {# 缺陷密度 = 该仓库违规数量 × 1000 / 该仓库代码行数，四舍五入取整；代码行数为 0 或缺数据时为 0 #}
+      <td class="num">{{ "{:,}".format(d.defect_density) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>3. 严重级别明细表</h2>
+<table>
+  <thead>
+    <tr>
+      <th>仓库名称</th>
+      {% for sev in severity_order %}
+      <th class="num">{{ severity_labels_zh[sev] }}</th>
+      {% endfor %}
+      <th class="num">合计</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in detail_data %}
+    <tr>
+      <td>{{ d.project_name }}</td>
+      {% for sev in severity_order %}
+      <td class="num sev{{ sev }}">{{ "{:,}".format(d.severity_breakdown.get(sev, 0)) }}</td>
+      {% endfor %}
+      <td class="num"><strong>{{ "{:,}".format(d.failed) }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>4. 开发者违规图</h2>
+<div class="chart-section">
+  {# 该作者在"每个相关仓库的最后一次构建"上的违规与抑制数量对比（不截断，全部仓库都画） #}
+  {% if charts.total_bad %}
+  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="开发者违规图（各仓库违规与抑制数量对比）">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
+
+<h2>5. 开发者趋势图</h2>
+{# 有几个仓库就有几张趋势图：X 轴是构建次序 build-1、build-2 ...，Y 轴是该作者那次构建的违规数量 #}
+{% if charts.repo_trends %}
+  {% for trend in charts.repo_trends %}
+  <div class="chart-section">
+    <h3>5.{{ loop.index }} {{ trend.name }}（共 {{ trend.build_count }} 次构建）</h3>
+    <img src="data:image/png;base64,{{ trend.image }}" alt="{{ trend.name }} 开发者违规数量趋势图">
+    {% if trend.note %}<p class="chart-note">{{ trend.note }}</p>{% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="chart-section">
+    <p>暂无可显示的趋势数据：该开发者相关的仓库没有可用的历史构建记录。</p>
+  </div>
+{% endif %}
+
+<div class="footer">
+  DTP静态分析违规对比报告 | 由 dtp_sa_report 工具自动生成
+</div>
+
+</div>
+</body>
+</html>

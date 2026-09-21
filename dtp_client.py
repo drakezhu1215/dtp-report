@@ -15,6 +15,10 @@ _DEFAULT_API_VERSION = "v1.12"
 # 故 NOPLIF 为主选，其余仅作兼容回退。
 _CODE_LINES_METRIC_IDS = ("METRIC.NOPLIF", "METRIC.NOSLIF", "METRIC.NOLLOCIF")
 
+# 开发者（author）维度查询时默认取的违规状态：未解决（failed）+ 已抑制（suppressed）。
+# DTP 的 count 接口默认只算 failed，不传 statuses 时返回体里连 suppressed 字段都没有。
+_DEFAULT_STATUSES = "failed,suppressed"
+
 
 class DTPClient:
     def __init__(self, url: str, username: str, password: str):
@@ -47,11 +51,126 @@ class DTPClient:
         build_id: str,
         filter_id: int,
         group_by: Optional[str] = None,
+        author: Optional[str | list[str]] = None,
+        statuses: Optional[str] = None,
     ) -> dict:
-        params = {"buildId": build_id, "filterId": filter_id}
+        """违规计数接口（``GET /staticAnalysisViolations/count``）。
+
+        ``group_by`` 取 ``severity`` / ``category`` / ``resource`` / ``rule`` /
+        ``author`` 等（见 DTP swagger 的 ``groupBy`` 枚举）。
+
+        ``author`` 为 DTP 的 ``author`` 查询参数：**只统计该作者（们）的违规**
+        （作者名形如 ``FC_MARMO\\marmo``、``hendra``）。传 list 时 requests 会展开成
+        重复参数 ``author=a&author=b``，即"命中任意一个作者"。
+
+        ``statuses`` 是 DTP 的违规状态过滤：``failed``（默认）/ ``suppressed``，
+        也可以 ``"failed,suppressed"`` 一起取——DTP 不给这个参数时只算 failed，
+        返回体里也就没有 ``suppressed`` 字段，这正是报告里"抑制"列一直是 0 的原因。
+        """
+        params: dict = {"buildId": build_id, "filterId": filter_id}
         if group_by:
             params["groupBy"] = group_by
+        if author:
+            params["author"] = author
+        if statuses:
+            params["statuses"] = statuses
         return self._get("/staticAnalysisViolations/count", params=params)
+
+    def get_author_counts(
+        self,
+        build_id: str,
+        filter_id: int,
+        statuses: str = _DEFAULT_STATUSES,
+    ) -> tuple[bool, dict[str, dict[str, int]]]:
+        """按作者分组的违规计数：``{作者名: {"failed": n, "suppressed": n}}``。
+
+        实测返回体（v1.12）::
+
+            GET /staticAnalysisViolations/count?buildId=..&filterId=..
+                &groupBy=author&statuses=failed,suppressed
+
+            {"build": {"id": "..."}, "hasData": true, "failed": 70496, "suppressed": 77,
+             "groupBy": {"type": "author", "count": 10, "groups": [
+                 {"person": {"name": "FC_MARMO\\\\marmo"}, "failed": 847, "suppressed": 0},
+                 ...]}}
+
+        - 返回值第一个元素是 ``hasData``（该 build 有没有静态分析数据）；
+        - DTP 只返回"有违规/有抑制"的作者，某个作者在这次构建里一个违规都没有时
+          不会出现在分组里（调用方据此把缺失点当作 0，见 author_analyzer）；
+        - ``limit`` / ``offset`` 对该接口无效，一次请求就能拿到全部作者分组。
+        """
+        resp = self.get_violation_count(
+            build_id=build_id,
+            filter_id=filter_id,
+            group_by="author",
+            statuses=statuses,
+        )
+
+        result: dict[str, dict[str, int]] = {}
+        for group in ((resp.get("groupBy") or {}).get("groups") or []):
+            person = group.get("person") or {}
+            name = str(person.get("name") or "").strip()
+            if not name:
+                continue
+            result[name] = {
+                "failed": int(group.get("failed") or 0),
+                "suppressed": int(group.get("suppressed") or 0),
+            }
+
+        return bool(resp.get("hasData", False)), result
+
+    def get_author_violation_count(
+        self,
+        build_id: str,
+        filter_id: int,
+        author: str,
+        statuses: str = _DEFAULT_STATUSES,
+    ) -> tuple[bool, dict[str, int]]:
+        """单个作者在该 build 上的违规计数：``(hasData, {"failed": n, "suppressed": n})``。
+
+        用于"手工添加的开发者"：这类作者不在本地缓存的作者索引里，需要按仓库逐个
+        用 ``author=`` 参数查询才能知道它跟哪些仓库相关。
+        """
+        resp = self.get_violation_count(
+            build_id=build_id,
+            filter_id=filter_id,
+            author=author,
+            statuses=statuses,
+        )
+        return bool(resp.get("hasData", False)), {
+            "failed": int(resp.get("failed") or 0),
+            "suppressed": int(resp.get("suppressed") or 0),
+        }
+
+    def get_severity_counts(
+        self,
+        build_id: str,
+        filter_id: int,
+        author: Optional[str] = None,
+        statuses: Optional[str] = None,
+    ) -> dict[str, int]:
+        """按严重级别分组的违规计数：``{"1": 285, "2": 19401, ...}``。
+
+        ``author`` 非空时只统计该作者的违规（``groupBy=severity&author=..``），
+        即"某个开发者在一个仓库的最后一次构建上的严重级别分布"。
+        """
+        resp = self.get_violation_count(
+            build_id=build_id,
+            filter_id=filter_id,
+            group_by="severity",
+            author=author,
+            statuses=statuses,
+        )
+
+        breakdown: dict[str, int] = {}
+        for group in ((resp.get("groupBy") or {}).get("groups") or []):
+            severity = group.get("severity") or {}
+            name = str(severity.get("name") or "").strip()
+            if not name:
+                continue
+            breakdown[name] = int(group.get("failed") or 0)
+
+        return breakdown
 
     def get_file_count(self, build_id: str, filter_id: int) -> int:
         """获取该 build + filter 下 DTP 扫描的**所有文件数**（含无违规文件）。

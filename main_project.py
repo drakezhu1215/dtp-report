@@ -16,7 +16,7 @@ config.yaml 的 merge_projects 定义 "项目 -> 仓库列表" 的归属关系�
 
 报告内容只包含该项目下各仓库（spln_3p_application 等）的数据：
 
-- 摘要按该项目仓库汇总，仓库概览和严重级别明细表逐仓库列出；
+- 摘要按该项目仓库汇总，项目概览和严重级别明细表逐仓库列出；
 - 第 4 章"项目违规图"：该项目下全部有数据的仓库的违规数量对比条形图（不截断）；
 - 第 5 章"项目趋势图"：各仓库违规趋势曲线图——有几个仓库就画几张，X 轴是构建次序
       （build-1、build-2 ...），Y 轴是那次构建的违规数量；
@@ -347,10 +347,10 @@ def generate_reports(
     client = DTPClient(url=url, username=username, password=password)  
     
     # with_file_count=True: 额外从 DTP 查询每个仓库"扫描的源文件数"（/staticAnalysisFiles），
-    #                       用于报告摘要的"文件总数"和仓库概览的"文件数"；
+    #                       用于报告摘要的"文件总数"和项目概览的"文件数"；
     # with_code_lines=True: 额外从 DTP 查询每个仓库"代码行数"（metrics 指标 METRIC.NOPLIF），
-    #                       用于报告摘要的"代码总数"和仓库概览的"代码行数"。
-    # 两个开关都开启后，摘要/仓库概览的"缺陷密度"才有意义（= 违规数 × 1000 / 代码行数）。
+    #                       用于报告摘要的"代码总数"和项目概览的"代码行数"。
+    # 两个开关都开启后，摘要/项目概览的"缺陷密度"才有意义（= 违规数 × 1000 / 代码行数）。
     data = collect_violations(
         client,
         project_names=project_names,
@@ -365,7 +365,7 @@ def generate_reports(
     )
 
     # 有静态分析数据、但 DTP 该 build 未上报任何代码度量（metrics/types 为空）时，
-    # 代码行数会是 0，仓库概览里该行显示"无数据"——这里列出来，避免被当成"真的 0 行"。
+    # 代码行数会是 0，项目概览里该行显示"无数据"——这里列出来，避免被当成"真的 0 行"。
     no_loc = [d.project_name for d in data if d.has_data and d.code_lines == 0]
     if no_loc:
         preview = ", ".join(no_loc[:10]) + (" ..." if len(no_loc) > 10 else "")

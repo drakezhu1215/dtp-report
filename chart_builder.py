@@ -180,8 +180,13 @@ def _short_date(build_date: str) -> str:
     return build_date[:10] if len(build_date) >= 10 else build_date
 
 
-def _plot_repo_trend(trend: RepoBuildTrend) -> str:
-    """单个仓库的违规趋势 X-Y 曲线图：X 轴是构建次序，Y 轴是该次构建的违规数量。"""
+def _plot_repo_trend(trend: RepoBuildTrend, owner_name: str | None = None) -> str:
+    """单个仓库的违规趋势 X-Y 曲线图：X 轴是构建次序，Y 轴是该次构建的违规数量。
+
+    ``owner_name``（开发者名）非空时写进标题，用于开发者报告——同一张图在项目报告里
+    是"该仓库整体的违规趋势"，在开发者报告里是"该作者在该仓库的违规趋势"，
+    标题必须能区分开（main_project.py 不传该参数，图与以前完全一致）。
+    """
     points = _trend_points(trend)
     if not points:
         return ""
@@ -202,7 +207,10 @@ def _plot_repo_trend(trend: RepoBuildTrend) -> str:
     first_date = _short_date(points[0].build_date)
     last_date = _short_date(points[-1].build_date)
     date_range = f"（{first_date} ~ {last_date}）" if first_date and last_date else ""
-    ax.set_title(f"{trend.repo_name} 违规趋势{date_range}")
+    ax.set_title(
+        f"{trend.repo_name} 违规趋势（{owner_name}）{date_range}" if owner_name
+        else f"{trend.repo_name} 违规趋势{date_range}"
+    )
     ax.set_xlabel("构建次序 (Build)")
     ax.set_ylabel("违规数量 (Violation Count)")
     ax.set_xticks(x)
@@ -227,18 +235,21 @@ def _plot_repo_trend(trend: RepoBuildTrend) -> str:
     return _fig_to_base64(fig)
 
 
-def chart_repo_trends(trends: list[RepoBuildTrend]) -> list[dict]:
+def chart_repo_trends(trends: list[RepoBuildTrend], owner_name: str | None = None) -> list[dict]:
     """为每个仓库生成一张违规趋势图（有几个仓库就有几张图）。
 
     返回 ``[{"name": 仓库名, "image": base64, "build_count": 构建次数,
     "note": build 对应关系}, ...]``；仓库没有可用的构建数据时该仓库不出图
     （不会产生只有坐标轴的空图）。
+
+    ``owner_name``（开发者名）可选：非空时画进图标题，供开发者报告
+    （main_developer.py）区分"某开发者在某仓库的趋势"与项目报告里的整仓趋势。
     """
     charts: list[dict] = []
 
     for trend in trends:
         points = _trend_points(trend)
-        image = _plot_repo_trend(trend)
+        image = _plot_repo_trend(trend, owner_name)
         if not image:
             continue
 

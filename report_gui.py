@@ -12,8 +12,9 @@
 
 启动方式：
 
-    python main_project.py         # 无参数 -> 自动打开本界面
+    python main_project.py         # 无参数 -> 自动打开本界面（report_v3_zh.html）
     python main_project.py --gui   # 显式打开本界面
+    python main_developer.py       # 无参数 -> 自动打开本界面（report_v4_zh.html）
     python report_gui.py           # 直接运行本文件
 """
 
@@ -103,9 +104,17 @@ class ReportApp:
     界面分三块：配置信息（只读）、项目选择（下拉多选）、日志框（所有输出）。
     """
 
-    def __init__(self, root: tk.Tk, config_path: str = "config.yaml") -> None:
+    def __init__(
+        self,
+        root: tk.Tk,
+        config_path: str = "config.yaml",
+        locale: str | None = None,
+    ) -> None:
         self.root = root
         self.config_path = config_path
+        # 报告模板覆盖：None = 用 config.yaml 的 report.locale_project（main_project.py 的行为）；
+        # main_developer.py 传 "v4_zh"，让图形界面也生成开发者报告（report_v4_zh.html）
+        self.locale_override = locale
 
         # 后台线程 -> 主线程的消息队列，保证跨线程更新界面安全
         self.log_queue: "queue.Queue[str]" = queue.Queue()
@@ -318,7 +327,10 @@ class ReportApp:
         self.info_vars["config"].set(str(Path(self.config_path).resolve()))
         self.info_vars["url"].set(str(dtp_cfg.get("url", "-")))
         self.info_vars["output"].set(str(Path(self.output_dir).resolve()))
-        self.info_vars["locale"].set(str(report_cfg.get("locale_project", "v3_zh")))
+        # 界面显示实际使用的模板：main_developer.py 传入的 locale 优先（None 时同原行为）
+        self.info_vars["locale"].set(
+            str(self.locale_override or report_cfg.get("locale_project", "v3_zh"))
+        )
 
         self._rebuild_project_menu()
         self.log_queue.put(
@@ -411,6 +423,8 @@ class ReportApp:
                 config_path=self.config_path,
                 selected_projects=selected,
                 output_dir=self.output_dir,
+                # None 时 generate_reports 用 config.yaml 的 report.locale_project
+                locale=self.locale_override,
             )
         except Exception as exc:  # 网络异常、DTP 认证失败等
             error = f"{type(exc).__name__}: {exc}"
@@ -474,10 +488,15 @@ def open_in_file_manager(path: Path) -> None:
         messagebox.showerror("打不开目录", f"无法打开 {path}：{exc}")
 
 
-def launch_gui(config_path: str = "config.yaml") -> None:
-    """创建并运行主窗口（main_project.py 无参数启动时调用）。"""
+def launch_gui(config_path: str = "config.yaml", locale: str | None = None) -> None:
+    """创建并运行主窗口（main_project.py / main_developer.py 无参数启动时调用）。
+
+    ``locale`` 为 ``None`` 时使用 config.yaml 的 ``report.locale_project``
+    （main_project.py 的原有行为不变）；main_developer.py 传 ``"v4_zh"``，
+    让界面生成的报告使用 templates/report_v4_zh.html。
+    """
     root = tk.Tk()
-    ReportApp(root, config_path=config_path)
+    ReportApp(root, config_path=config_path, locale=locale)
     root.mainloop()
 
 

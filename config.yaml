@@ -9,9 +9,14 @@ report:
   top_n_bad: 3                # main_friendcom.py 跨项目对比图：显示违规最多的前 N 个项目
                               # （main_project.py 的项目报告第 4 章"项目违规图"固定显示该项目下全部仓库，不受此项影响）
   top_n_good: 3
-  trend_builds: 10            # main_project.py 趋势图：每个仓库取最近多少次构建（0=不生成趋势图）
+  trend_builds: 10            # 趋势图：每个仓库取最近多少次构建（0=不生成趋势图）
+                              # main_project.py 用它画"整仓"趋势；main_developer.py 用它画
+                              # "该开发者在每个仓库"的趋势（并在抓取开发者索引时一次取完）
+  max_workers: 4              # main_developer.py 并发抓取线程数（DTP count 接口单次 1~3 秒，
+                              # 60 个仓库 × 10 次构建的开发者数据靠它压到可接受的时间）
   locale_friendcom: "v2_zh"   # main_friendcom.py 使用
   locale_project: "v3_zh"     # main_project.py 使用
+  locale_developer: "v4_zh"   # main_developer.py 使用（report_v4_zh.html：开发者概览/开发者违规图/开发者趋势图）
 
 merge_projects:
   海外三相电表平台:
