@@ -1,11 +1,22 @@
+import logging
+
 import requests
 import urllib3
 from typing import Optional
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+logger = logging.getLogger(__name__)
+
 
 _DEFAULT_API_VERSION = "v1.12"
+
+# “全部构建”（get_builds(limit=None)）的翻页参数：
+#   单页 200 条；最多翻 100 页（= 20000 次构建）。
+# 页数上限是防御性的——万一服务端忽略 offset（反复返回第一页），
+# 靠 build id 去重 + 页数上限保证不会死循环、也不会重复。
+_BUILDS_PAGE_SIZE = 200
+_BUILDS_MAX_PAGES = 100
 
 # "代码行数"取用的 DTP metrics 指标 id，按优先级依次尝试（取第一个有数据的）：
 #   METRIC.NOPLIF   Physical Lines in Files   文件物理行数（含空行/注释）
@@ -43,8 +54,64 @@ class DTPClient:
             params["projectId"] = project_id
         return self._get("/filters", params=params)
 
-    def get_builds(self, filter_id: int, limit: int = 1) -> list[dict]:
-        return self._get("/builds", params={"filterId": filter_id, "limit": limit})
+    def get_builds(self, filter_id: int, limit: int | None = 1) -> list[dict]:
+        """取某个 filter（DTP 里 Filter 与仓库一一对应）下的构建列表。
+
+        DTP 一律返回“从新到旧”，本方法保持原样。
+
+        - ``limit`` 为正整数：只取最近 ``limit`` 次构建（一次请求）。报告里
+          “文件数 / 代码行数 / 严重级别 / 分类 / 违规总数”这些**非趋势**数据
+          只用每个仓库**最近一次构建**，调用方传 ``limit=1``；
+        - ``limit`` 为 ``None``（或 ``<=0``）：取该仓库的**全部构建**——按
+          ``limit``/``offset`` 翻页直到取空。趋势数据（每个仓库每次构建的违规数）
+          与开发者数据（每次构建按作者分组的违规数）都走这个口径，见
+          :func:`analyzer.collect_build_trends` 与
+          :func:`analyzer_author.collect_author_index`。
+
+        翻页时按 build id 去重：万一服务端忽略 ``offset``（反复返回第一页），
+        不会产生重复数据，并在取不到新数据时立刻停止（不会死循环）。
+        """
+        if limit is not None and limit > 0:
+            return self._get("/builds", params={"filterId": filter_id, "limit": limit}) or []
+
+        builds: list[dict] = []
+        seen: set[str] = set()
+        offset = 0
+
+        for _ in range(_BUILDS_MAX_PAGES):
+            page = self._get(
+                "/builds",
+                params={"filterId": filter_id, "limit": _BUILDS_PAGE_SIZE, "offset": offset},
+            ) or []
+            if not page:
+                break
+
+            added = 0
+            for build in page:
+                build_key = str(build.get("id", ""))
+                if build_key and build_key in seen:
+                    continue  # 服务端忽略了 offset：这一页是旧数据，跳过
+                if build_key:
+                    seen.add(build_key)
+                builds.append(build)
+                added += 1
+
+            if len(page) < _BUILDS_PAGE_SIZE:
+                break  # 不足一页 = 已经是最后一页
+            if added == 0:
+                logger.warning(
+                    "DTP /builds 翻页无效（offset 未生效），已取到 %d 次构建后停止：filterId=%s",
+                    len(builds), filter_id,
+                )
+                break
+            offset += _BUILDS_PAGE_SIZE
+        else:
+            logger.warning(
+                "DTP /builds 达到页数上限（%d 页 = %d 次构建），可能未取完全部构建：filterId=%s",
+                _BUILDS_MAX_PAGES, _BUILDS_MAX_PAGES * _BUILDS_PAGE_SIZE, filter_id,
+            )
+
+        return builds
 
     def get_violation_count(
         self,
@@ -96,7 +163,7 @@ class DTPClient:
 
         - 返回值第一个元素是 ``hasData``（该 build 有没有静态分析数据）；
         - DTP 只返回"有违规/有抑制"的作者，某个作者在这次构建里一个违规都没有时
-          不会出现在分组里（调用方据此把缺失点当作 0，见 author_analyzer）；
+          不会出现在分组里（调用方据此把缺失点当作 0，见 analyzer_author）；
         - ``limit`` / ``offset`` 对该接口无效，一次请求就能拿到全部作者分组。
         """
         resp = self.get_violation_count(

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""merge DTP repository """
+"""config.yaml 的 ``merge_projects``（项目 -> 仓库列表）合并工具。
+
+提供三件事：列出配置里的全部源项目（list_source_projects）、按合并组分组但保留
+仓库明细（group_project_violations）、把多个仓库求和成"虚拟项目"（merge_project_violations）
+并去重（unique_repo_violations）。公司报告、项目报告与统一入口 main.py 都用它解析
+"项目名 <-> 仓库名" 的归属关系。
+"""
 
 from collections import defaultdict
 from analyzer import ProjectViolations

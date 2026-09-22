@@ -49,11 +49,11 @@ def _build_summary(
     ``data`` 是报告里逐行列出的数据；``summary_source`` 可选，只用来决定
     \"文件总数 / 代码总数 / 违规总数 / 已抑制 / 缺陷密度\" 这几张汇总卡的**统计口径**。
 
-    main_friendcom.py 传的是\"唯一仓库列表\"（按 filter_id 去重后的仓库）：
-    一个仓库可能同时属于多个项目组（如 config.yaml 的 dual_mode_cco 同时属于
-    \"国网营销双模湖南扩展协议\" 和 \"国网营销双模能源控制器(专变)模块\"），
+    公司级报告（main.py 的 ``generate_company_report``）传的是"唯一仓库列表"
+    （按 filter_id 去重后的仓库）：一个仓库可能同时属于多个项目组（如 config.yaml 的
+    dual_mode_cco 同时属于"国网营销双模湖南扩展协议" 和 "国网营销双模能源控制器(专变)模块"），
     项目概览表里它会按组各列一行，但公司级的总量不能把这些文件/代码行重复计入。
-    ``summary_source`` 为 None 时按 ``data`` 统计（main_project.py 的调用行为不变）。
+    ``summary_source`` 为 None 时按 ``data`` 统计（项目报告 / 开发者报告的调用行为不变）。
 
     其余字段（total_projects / projects_with_data / highest_project / latest_project
     / top_category）仍然描述\"报告里逐行列出的条目\"，不受 ``summary_source`` 影响。
@@ -121,10 +121,9 @@ def generate_html_report(
 
     ``data`` 决定"项目概览"和"严重级别明细表"的明细行，同时参与"摘要"计算，
     因此传入"单个项目下的仓库列表"即可得到该项目专属的报告；
-    ``project_name`` 只用于报告标题显示（为 None 时模板保持原有标题，
-    main_friendcom.py 的调用行为完全不变）；
+    ``project_name`` 只用于报告标题显示（为 None 时模板保持原有标题）；
     ``summary_source`` 可选，只用来决定摘要里"文件总数 / 代码总数 / 违规总数 /
-    缺陷密度"等汇总卡的统计口径——main_friendcom.py 传"唯一仓库列表"（按
+    缺陷密度"等汇总卡的统计口径——公司级报告传"唯一仓库列表"（按
     ``filter_id`` 去重），避免一个仓库属于多个项目组时被重复计入总量；
     为 None 时摘要仍按 ``data`` 统计；
     ``developer_name`` 只在开发者报告（report_v4_zh.html）里用：非空时标题变成

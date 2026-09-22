@@ -29,8 +29,9 @@
    "违规总数"= 该作者的违规合计，缺陷密度 = 违规总数 × 1000 / 代码总数
    （与 :func:`analyzer.calculate_defect_density` 同一个公式与取整规则）。
 
-一次抓取的产物是 :class:`AuthorIndex`：它把"每个仓库最近 N 次构建的作者分布"缓存
-在内存里，之后为任意多个开发者出报告都只额外需要严重级别查询，不用再遍历构建。
+一次抓取的产物是 :class:`AuthorIndex`：它把“每个仓库每次构建的作者违规分布”
+缓存在内存里（默认取**全部构建**，可用 ``max_builds`` 限制次数），之后为任意多个
+开发者出报告都只额外需要严重级别查询，不用再遍历构建。
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 # 采集开发者索引时的并发线程数。与 analyzer._TREND_MAX_WORKERS 同理：
 # DTP 的 count 接口单次 1~3 秒，少量线程并发（实测 4 线程安全）能把
-# "60 个仓库 × 最近 N 次构建"的抓取时间压到可以接受的范围内。
+# “60 个仓库 × 每个仓库的全部构建”的抓取时间压到可以接受的范围内。
 _DEFAULT_MAX_WORKERS = 4
 
 
@@ -76,14 +77,14 @@ class AuthorIndex:
     - :attr:`repo_builds`：``仓库名 -> [RepoBuildAuthors, ...]``，顺序与 DTP
       ``/builds`` 一致（**从新到旧**）；
     - :attr:`authors`：全部开发者名，按"违规总数从多到少"排序（界面列表顺序）；
-    - :attr:`trend_builds`：抓取时每个仓库取了多少次构建（``<=0`` 表示只取了最新
-      一次，此时没有趋势数据，报告第 5 章也就没有曲线图）。
+    - :attr:`max_builds`：抓取时每个仓库取了多少次构建的违规数（``None`` = 全部
+      构建；``1`` = 只取了最新一次，此时没有趋势数据，报告第 5 章也就没有曲线图）。
     """
 
     repos: list[ProjectViolations] = field(default_factory=list)
     authors: list[str] = field(default_factory=list)
     repo_builds: dict[str, list[RepoBuildAuthors]] = field(default_factory=dict)
-    trend_builds: int = 0
+    max_builds: int | None = None
 
     # ------------------------------------------------------------------
     # 派生视图
@@ -172,8 +173,8 @@ class AuthorIndex:
         )
 
 
-def _safe_builds(client: DTPClient, repo: ProjectViolations, limit: int) -> list[dict]:
-    """取一个仓库最近的 ``limit`` 次构建（失败只记日志，不影响其它仓库）。"""
+def _safe_builds(client: DTPClient, repo: ProjectViolations, limit: int | None) -> list[dict]:
+    """取一个仓库的构建列表（``limit=None`` = 全部构建；失败只记日志，不影响其它仓库）。"""
     try:
         return client.get_builds(filter_id=repo.filter_id, limit=limit) or []
     except Exception as exc:
@@ -200,24 +201,24 @@ def _safe_author_counts(
 def collect_author_index(
     client: DTPClient,
     repos: list[ProjectViolations],
-    trend_builds: int = 10,
+    max_builds: int | None = None,
     max_workers: int = _DEFAULT_MAX_WORKERS,
 ) -> AuthorIndex:
-    """抓取"开发者索引"：每个仓库最近 ``trend_builds`` 次构建的作者违规分布。
+    """抓取"开发者索引"：每个仓库**每次构建**（默认全部构建）的作者违规分布。
 
     :param repos: 仓库列表，通常是 :func:`analyzer.collect_violations` 的返回值
         （一个仓库一条记录，带 ``filter_id``）。同一个 ``filter_id`` 只抓一次。
-    :param trend_builds: 每个仓库取最近多少次构建：``<= 0`` 时只取最新一次
-        （能拿到作者列表，但没有趋势数据）；正整数则顺带把趋势数据一次抓完，
-        之后为每个开发者出报告都不用再访问 DTP 的趋势数据。
+    :param max_builds: 每个仓库取多少次构建的违规数：``None``（默认）= **全部构建**；
+        正整数 = 只取最近 N 次（构建特别多、想缩短抓取时间时用）；``<= 0`` = 只取
+        最新一次（能拿到作者列表，但没有趋势数据）。
     :param max_workers: 并发线程数（``<= 1`` 时退化为串行）。
 
-    请求量 = ``仓库数``（取构建列表）+ ``仓库数 × min(trend_builds, 构建数)``
-    （每次构建一次 ``groupBy=author``）。实测 60 个仓库 × 10 次构建约几分钟，
-    抓一次可给所有开发者复用，所以 main_developer.py 与界面都缓存这个索引。
+    请求量 = ``仓库数``（取构建列表）+ ``仓库数 × 构建数``（每次构建一次
+    ``groupBy=author``，一次请求就能拿到该次构建下全部作者的违规数）；抓一次可给
+    所有开发者复用，所以 report_author.py 与界面都缓存这个索引。
     """
     if not repos:
-        return AuthorIndex(repos=[], authors=[], repo_builds={}, trend_builds=trend_builds)
+        return AuthorIndex(repos=[], authors=[], repo_builds={}, max_builds=max_builds)
 
     # 同一个仓库（同 filter_id）只抓一次：config.yaml 里一个仓库可能属于多个项目组
     unique_repos: list[ProjectViolations] = []
@@ -228,13 +229,19 @@ def collect_author_index(
         seen_filter_ids.add(repo.filter_id)
         unique_repos.append(repo)
 
-    limit = max(1, int(trend_builds))
+    # max_builds：None = 全部构建（交给 DTPClient.get_builds 翻页）；
+    # 正整数 = 最近 N 次；<= 0 = 只取最新一次（够出表格，但没有趋势数据）
+    if max_builds is None or int(max_builds) > 0:
+        limit: int | None = max_builds
+    else:
+        limit = 1
     workers = max(1, min(int(max_workers), max(1, len(unique_repos))))
 
-    # 阶段 1：并发取每个仓库最近的构建列表（DTP 返回"从新到旧"）
+    # 阶段 1：并发取每个仓库的构建列表（DTP 返回"从新到旧"）
     logger.info(
-        "Collecting author data for %d repo(s) (latest %d build(s) each)...",
-        len(unique_repos), limit,
+        "Collecting author data for %d repo(s) (%s)...",
+        len(unique_repos),
+        "all builds" if limit is None else f"latest {limit} build(s)",
     )
     with ThreadPoolExecutor(max_workers=workers) as pool:
         build_lists = list(pool.map(lambda r: _safe_builds(client, r, limit), unique_repos))
@@ -285,7 +292,7 @@ def collect_author_index(
         repos=unique_repos,
         authors=authors_sorted,
         repo_builds=repo_builds,
-        trend_builds=trend_builds,
+        max_builds=max_builds,
     )
 
 
@@ -305,10 +312,10 @@ def author_report_trends(
 ) -> dict[str, RepoBuildTrend]:
     """从索引里取出该开发者在各仓库的趋势（``{仓库名: RepoBuildTrend}``）。
 
-    仓库顺序与 ``rows``（报告表格顺序）一致；索引里没有趋势数据（抓索引时
-    ``trend_builds<=0``）时返回空字典，报告第 5 章就没有曲线图。
+    仓库顺序与 ``rows``（报告表格顺序）一致；抓索引时每个仓库只取了 1 次构建
+    （``max_builds == 1``，即只看最新一次构建）时返回空字典，报告第 5 章就没有曲线图。
     """
-    if not index or index.trend_builds <= 0:
+    if not index or index.max_builds == 1:
         return {}
 
     trends: dict[str, RepoBuildTrend] = {}
@@ -423,15 +430,17 @@ def collect_author_repo_trends(
     client: DTPClient,
     author: str,
     rows: list[ProjectViolations],
-    max_builds: int = 10,
+    max_builds: int | None = None,
     max_workers: int = _DEFAULT_MAX_WORKERS,
 ) -> dict[str, RepoBuildTrend]:
     """兜底路径的趋势数据：手工添加的开发者没有缓存，逐 build 按作者查询。
 
     与 :func:`analyzer.collect_build_trends` 的唯一差别是每次构建的计数都带上
     ``author=`` 过滤，因此得到的是"该作者在该仓库每次构建上的违规数"。
+    默认 ``max_builds=None`` 取该仓库的**全部构建**；``>0`` 只取最近 N 次；
+    ``<=0`` 不采集（返回空字典）。
     """
-    if max_builds <= 0 or not rows:
+    if (max_builds is not None and max_builds <= 0) or not rows:
         return {}
 
     workers = max(1, min(int(max_workers), len(rows)))
@@ -453,9 +462,9 @@ def _collect_author_build_points(
     client: DTPClient,
     author: str,
     repo: ProjectViolations,
-    max_builds: int,
+    max_builds: int | None,
 ) -> RepoBuildTrend:
-    """逐 build 采集"该作者"在一个仓库最近 ``max_builds`` 次构建上的违规数。"""
+    """逐 build 采集"该作者"在一个仓库构建上的违规数（``max_builds=None`` = 全部构建）。"""
     try:
         builds = client.get_builds(filter_id=repo.filter_id, limit=max_builds)
     except Exception as exc:

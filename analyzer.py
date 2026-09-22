@@ -57,7 +57,7 @@ class ProjectViolations:
     suppressed: int
     # 有静态分析违规的源文件数量（由 DTP 按 resource 分组统计得到）。
     # 默认 0：只有显式要求（collect_violations(with_file_count=True)）时才去查询，
-    # 因此不影响 main_project.py 之类的调用方。
+    # 因此不影响只关心违规数的调用方。
     file_count: int = 0
     # 代码行数合计（DTP metrics 指标值，主选 METRIC.NOPLIF 物理行数）。
     # 同样默认 0，仅在 collect_violations(with_code_lines=True) 时查询。
@@ -74,7 +74,7 @@ class ProjectViolations:
         - 计算与取整规则见 :func:`calculate_defect_density`；
         - 该项目本身没有静态分析数据（``has_data`` 为 False）时返回 0。
 
-        合并组（merge_project.merge_project_violations）不需要额外处理：
+        合并组（project_merge.merge_project_violations）不需要额外处理：
         它合并了 failed / code_lines，本属性按合并后的值计算。
         """
         if not self.has_data:
@@ -90,6 +90,10 @@ def collect_violations(
     with_code_lines: bool = False,
 ) -> list[ProjectViolations]:
     """抓取各项目的违规数据。
+
+    **口径：只用每个仓库最近一次构建**——``/builds?limit=1`` 拿到最新 build 后，
+    违规数 / 抑制数 / 严重级别 / 分类 / 文件数 / 代码行数都取自这一次构建。
+    需要“每个仓库每次构建的违规数”的是趋势数据，见 :func:`collect_build_trends`。
 
     ``with_file_count=True`` 时额外查询 "DTP 扫描的源文件数"（每个 build 多一次
     REST 请求），写入 ``ProjectViolations.file_count``；``with_code_lines=True``
@@ -113,6 +117,8 @@ def collect_violations(
         for f in target_filters:
             fid = f["id"]
             try:
+                # 其它数据（违规数 / 抑制数 / 文件数 / 代码行数 / 严重级别 / 分类）
+                # 只取每个仓库最近一次构建
                 builds = client.get_builds(filter_id=fid, limit=1)
             except Exception as exc:
                 logger.warning("Failed to get builds for filter %s: %s", fid, exc)
@@ -239,19 +245,21 @@ class RepoBuildTrend:
 def collect_build_trends(
     client: DTPClient,
     repos: list[ProjectViolations],
-    max_builds: int = 10,
+    max_builds: int | None = None,
     max_workers: int = _TREND_MAX_WORKERS,
 ) -> dict[str, RepoBuildTrend]:
-    """采集每个仓库“最近若干次构建各自的违规数量”，供项目趋势图使用。
+    """采集每个仓库“每次构建各自的违规数量”，供趋势图使用。
 
     - ``repos`` 通常是 :func:`collect_violations` 的返回值：一个仓库一条记录，
       记录里已经带上了该仓库对应的 ``filter_id``（DTP 里 Filter 与仓库一一对应）；
-    - 每个仓库先调用 ``/builds?filterId=..&limit=max_builds`` 取最近
-      ``max_builds`` 次构建，再对每次构建调用
+    - 默认（``max_builds=None``）取该仓库的**全部构建**：``/builds`` 按
+      ``limit``/``offset`` 翻完整个构建列表，再对**每一次构建**调用
       ``/staticAnalysisViolations/count?buildId=..&filterId=..`` 取违规数量；
+    - ``max_builds>0`` 时只取最近 ``max_builds`` 次构建（构建特别多、想缩短抓取
+      时间时用）；``max_builds<=0`` 表示不采集趋势数据，直接返回空字典
+      （不发起任何请求）；
     - count 接口单次实测 1~3 秒，因此每次构建一次请求，用 ``max_workers``
       个线程并发请求（``max_workers<=1`` 时退化为串行）；
-    - ``max_builds<=0`` 表示不采集趋势数据，直接返回空字典（不发起任何请求）；
     - DTP 的 build 列表是“从新到旧”，这里反转为“从旧到新”，让趋势图 X 轴
       从左到右依次是 build-1（最早）、build-2 ... build-N（最新）；
     - 某个 build 的 count 请求失败、或 ``hasData=false``（该次构建没有静态分析
@@ -262,7 +270,7 @@ def collect_build_trends(
     返回的 :class:`RepoBuildTrend` 按 x 轴序号取点即可：
     ``points[i].failed`` 就是 ``build-(i+1)`` 的违规数量。
     """
-    if max_builds <= 0 or not repos:
+    if (max_builds is not None and max_builds <= 0) or not repos:
         return {}
 
     # 仓库名 -> 该仓库的数据；同一仓库（同名）只采集一次
@@ -290,10 +298,10 @@ def collect_build_trends(
 def _collect_build_points(
     client: DTPClient,
     repo: ProjectViolations,
-    max_builds: int,
+    max_builds: int | None,
     max_workers: int,
 ) -> list[BuildViolationPoint]:
-    """采集单个仓库最近 ``max_builds`` 次构建的违规数据（从旧到新排列）。"""
+    """采集单个仓库的构建违规数据（``max_builds=None`` 表示全部构建，从旧到新排列）。"""
     try:
         builds = client.get_builds(filter_id=repo.filter_id, limit=max_builds)
     except Exception as exc:
@@ -303,6 +311,8 @@ def _collect_build_points(
     if not builds:
         logger.info("No builds for %s, trend chart skipped", repo.project_name)
         return []
+
+    logger.info("%s: %d build(s) found for trend", repo.project_name, len(builds))
 
     # DTP 返回的是“从新到旧”，反转后 X 轴从左到右即为 build-1、build-2 ...
     builds = list(reversed(builds))
