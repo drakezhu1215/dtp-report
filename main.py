@@ -26,10 +26,12 @@
    - 开发者：列出 DTP 上的全部作者，同样可以添加 / 移除 / 全选 / 全部移除，
      "开发者报告"按钮为每位已选作者生成一份报告；
 
-3. 三类报告都写入 config.yaml 的 ``report.output_dir``（步骤 1 开始时清空一次，
-   与升级前"每次运行只保留本次报告"的行为一致），文件名互不冲突：
+3. 三类报告写入 config.yaml 的 ``report.output_dir`` 下**各自独立的子目录**
+   （步骤 1 开始时只清空一次**根目录**，与升级前"每次运行只保留本次报告"的行为一致）：
 
-   ``Friendcom_<时间戳>.*`` / ``<项目名>_report_<时间戳>.*`` / ``<作者名>_developer_report_<时间戳>.*``
+   - 公司报告   -> ``output/company/Friendcom_<时间戳>.html`` + ``.xlsx``
+   - 项目报告   -> ``output/project/<项目名>_report_<时间戳>.html`` + ``.xlsx``
+   - 开发者报告 -> ``output/author/<作者名>_developer_report_<时间戳>.html`` + ``.xlsx``
 
 命令行（抓一次数据后按选中的类型出报告）：
 
@@ -201,8 +203,9 @@ def fetch_all_data(
         只列开发者清单时传 ``False`` 可以少抓一轮。开发者报告的趋势来自
         ``collect_author_index`` 的缓存，不受这个参数影响）。
 
-    输出目录会在这里**清空并重建一次**（每次运行只保留本次生成的报告），
-    之后三类报告都写进这个目录，互相不会覆盖。
+    报告**根目录**（config.yaml 的 ``report.output_dir``）会在这里清空并重建一次
+    （每次运行只保留本次生成的报告）；三类报告分别写入其下的 ``company/`` /
+    ``project/`` / ``author/`` 子目录，互相不会覆盖，见 :func:`report_out_dir`。
     """
     def report(percent: float, message: str) -> None:
         """上报进度：先写日志，再通知界面（界面回调只是 post 到主线程，不会阻塞抓取）。"""
@@ -303,6 +306,30 @@ def _ensure_out_dir(out_dir: Path | str) -> Path:
     return out
 
 
+# 三类报告各自的输出子目录（相对 config.yaml 的 report.output_dir）：
+#   <根目录>/company/   公司报告
+#   <根目录>/project/   项目报告
+#   <根目录>/author/    开发者报告
+REPORT_SUBDIRS = {
+    "company": "company",
+    "project": "project",
+    "author": "author",
+}
+
+
+def report_out_dir(
+    bundle: DataBundle, kind: str, out_dir: Path | str | None = None
+) -> Path:
+    """某一类报告的输出目录：``<报告根目录>/<company|project|author>``（不存在时创建）。
+
+    :param kind: 报告类型，取 :data:`REPORT_SUBDIRS` 的键（``company`` / ``project`` / ``author``）；
+    :param out_dir: **报告根目录**的覆盖值（默认用 ``bundle.output_dir``，即 config.yaml 的
+        ``report.output_dir``）。传进来的是根目录，三类报告的类型子目录都会建在它下面。
+    """
+    base = Path(out_dir) if out_dir is not None else bundle.output_dir
+    return _ensure_out_dir(base / REPORT_SUBDIRS[kind])
+
+
 def generate_company_report(
     bundle: DataBundle, *, out_dir: Path | str | None = None
 ) -> list[Path]:
@@ -310,6 +337,8 @@ def generate_company_report(
 
     合并 config.yaml 的 merge_projects 后做公司级汇总：摘要卡按"唯一仓库"去重统计，
     项目概览 / 违规警示榜 / 合规模范榜等按合并组逐行展示。
+
+    输出到 ``<报告根目录>/company/``。
     """
     data = bundle.data
     merge_projects = bundle.merge_projects
@@ -339,7 +368,7 @@ def generate_company_report(
         top_n_good=int(report_cfg.get("top_n_good", 3)),
     )
 
-    out = _ensure_out_dir(out_dir or bundle.output_dir)
+    out = report_out_dir(bundle, "company", out_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     base_name = build_company_base_name(timestamp)
     locale = report_cfg.get("locale_friendcom", DEFAULT_COMPANY_LOCALE)
@@ -361,7 +390,7 @@ def generate_project_reports_for(
     *,
     out_dir: Path | str | None = None,
 ) -> list[Path]:
-    """为每个项目生成一份报告（每个项目 1 个 .html + .xlsx）。
+    """为每个项目生成一份报告（每个项目 1 个 .html + .xlsx），输出到 ``<报告根目录>/project/``。
 
     :param selected_projects: 要出报告的项目名（config.yaml ``merge_projects`` 的 key）；
         为 ``None``/空时对配置里的**全部项目**出报告。
@@ -382,7 +411,7 @@ def generate_project_reports_for(
         return []
 
     groups = group_project_violations(bundle.data, merge_projects)
-    out = _ensure_out_dir(out_dir or bundle.output_dir)
+    out = report_out_dir(bundle, "project", out_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     locale = bundle.report_cfg.get("locale_project", DEFAULT_PROJECT_LOCALE)
 
@@ -398,7 +427,7 @@ def generate_author_reports_for(
     *,
     out_dir: Path | str | None = None,
 ) -> list[Path]:
-    """为每位开发者生成一份报告（每位作者 1 个 .html + .xlsx）。
+    """为每位开发者生成一份报告（每位作者 1 个 .html + .xlsx），输出到 ``<报告根目录>/author/``。
 
     :param selected_authors: 要出报告的开发者名列表；为 ``None``/空时对 DTP 上抓到的
         **全部作者**出报告。列表里允许有索引里没有的作者（界面上的"手工添加"），
@@ -409,7 +438,7 @@ def generate_author_reports_for(
         logger.warning("开发者报告：没有可生成报告的开发者（DTP 上没有找到任何作者）。")
         return []
 
-    out = _ensure_out_dir(out_dir or bundle.output_dir)
+    out = report_out_dir(bundle, "author", out_dir)
     settings = dict(bundle.settings)
     settings["output_dir"] = str(out)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -432,7 +461,10 @@ def build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--url", help="DTP server URL (overrides config)")
     parser.add_argument("--user", help="DTP username (overrides config)")
     parser.add_argument("--password", help="DTP password (overrides config)")
-    parser.add_argument("--output", help="Output directory (overrides config)")
+    parser.add_argument(
+        "--output",
+        help="报告根目录（覆盖 config）：三类报告分别写入其下的 company/、project/、author/ 子目录",
+    )
     parser.add_argument(
         "--trend-builds", type=int,
         help="趋势数据口径：0 = 每个仓库的全部构建（默认，每次构建一个趋势点）；"
@@ -497,6 +529,12 @@ def main(argv: list[str] | None = None) -> None:
         "全部完成：共生成 %d 份 HTML 报告（另有同名 .xlsx）-> %s",
         len(generated), bundle.output_dir.resolve(),
     )
+    for kind, enabled in (("company", company), ("project", projects), ("author", authors)):
+        if enabled:
+            logger.info(
+                "  %s目录：%s",
+                REPORT_KINDS[kind], (bundle.output_dir / REPORT_SUBDIRS[kind]).resolve(),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -1000,6 +1038,7 @@ class UnifiedReportApp:
         self.info_vars["url"].set(str(dtp_cfg.get("url", "-")))
         self.info_vars["output"].set(
             str(Path(str(report_cfg.get("output_dir", "./output"))).resolve())
+            + "（company / project / author 三个子目录）"
         )
         self.info_vars["company"].set(str(report_cfg.get("locale_friendcom", DEFAULT_COMPANY_LOCALE)))
         self.info_vars["project"].set(str(report_cfg.get("locale_project", DEFAULT_PROJECT_LOCALE)))
@@ -1174,6 +1213,7 @@ class UnifiedReportApp:
         self.data_summary_var.set(
             f"数据快照：{len(bundle.merge_projects)} 个项目组、{repo_count} 个有数据的仓库、"
             f"{len(bundle.index.authors)} 位开发者；输出目录 {bundle.output_dir.resolve()}"
+            "（company / project / author 三个子目录）"
         )
         self.company_summary_var.set(
             f"数据已就绪：{len(bundle.data)} 条仓库记录；公司报告会合并 "
@@ -1300,7 +1340,8 @@ class UnifiedReportApp:
             self._refresh_buttons()
             return
 
-        out_dir = self.bundle.output_dir.resolve() if self.bundle else Path("./output").resolve()
+        base_out = self.bundle.output_dir if self.bundle is not None else Path("./output")
+        out_dir = (base_out / REPORT_SUBDIRS[kind]).resolve()
         self.fetch_status_var.set(f"完成：已生成 {len(reports)} 份{title} -> {out_dir}")
         logging.getLogger(__name__).info("完成：%d 份%s已输出到 %s", len(reports), title, out_dir)
         messagebox.showinfo(

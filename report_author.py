@@ -200,7 +200,12 @@ def build_author_charts(
 
 
 def prepare_output_dir(output_dir: str) -> Path:
-    """清理并重建 output 目录，让本次运行生成的报告是目录里唯一的内容。"""
+    """清理并重建报告**根目录**，让本次运行生成的报告是目录里唯一的内容。
+
+    根目录（config.yaml ``report.output_dir``）下是三块报告各自的子目录
+    （``company/`` / ``project/`` / ``author/``，见 ``main.REPORT_SUBDIRS``），
+    清空根目录等于把上一轮的三类报告一起清掉。
+    """
     out = Path(output_dir)
     if out.exists():
         logger.info("Cleaning output directory: %s", out.resolve())

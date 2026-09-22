@@ -4,7 +4,12 @@ dtp:
   password: "float@2143"
 
 report:
-  output_dir: "./output"
+  output_dir: "./output"      # 报告**根目录**：三类报告分别写入其下的子目录
+                              #   ./output/company/  公司报告  Friendcom_<时间戳>.html / .xlsx
+                              #   ./output/project/  项目报告  <项目名>_report_<时间戳>.html / .xlsx
+                              #   ./output/author/   开发者报告 <作者名>_developer_report_<时间戳>.html / .xlsx
+                              # 每次"连接 DTP 并获取数据"开始时只清空这个根目录一次
+                              # （即上一轮的三个子目录会被一起清掉）
   project_names: []
   top_n_bad: 3                # 公司报告跨项目对比图：显示违规最多的前 N 个项目
                               # （主干报告的第 4 章"项目违规图"固定显示该项目下全部仓库，不受此项影响）
