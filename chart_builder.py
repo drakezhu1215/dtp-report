@@ -122,10 +122,10 @@ def chart_total_violations_bad(
     """违规数量的分组条形图。
 
     默认取违规最多的 ``top_n_bad`` 个对象；``top_n_bad <= 0`` 时不截断，画全部对象
-    （main_project.py 的项目报告用它显示该项目下的所有仓库）。
+    （项目报告 / 开发者报告用它显示各自范围内的所有仓库）。
 
-    ``title`` / ``x_label`` 默认保持原来的英文文案（main_friendcom.py 的
-    跨项目对比报告行为不变）；main_project.py 的项目报告传入中文标题与
+    ``title`` / ``x_label`` 为 None 时用英文默认文案（公司级报告的跨项目对比图）；
+    项目报告与开发者报告会传入中文标题与
     "仓库" 作为 X 轴名。
     """
     active = [d for d in data if d.has_data]
@@ -133,7 +133,7 @@ def chart_total_violations_bad(
         return ""
 
     # 按未解决违规数 failed 降序排列；top_n_bad <= 0 表示"不截断，显示全部对象"
-    # （main_project.py 的项目报告第 4 章"项目违规图"里要列出该项目下的所有仓库）
+    # （项目报告第 4 章"项目违规图"里要列出该项目下的所有仓库）
     active = sorted(active, key=lambda d: d.failed, reverse=True)
     if top_n_bad > 0:
         active = active[:top_n_bad]
@@ -183,9 +183,9 @@ def _short_date(build_date: str) -> str:
 def _plot_repo_trend(trend: RepoBuildTrend, owner_name: str | None = None) -> str:
     """单个仓库的违规趋势 X-Y 曲线图：X 轴是构建次序，Y 轴是该次构建的违规数量。
 
-    ``owner_name``（开发者名）非空时写进标题，用于开发者报告——同一张图在项目报告里
-    是"该仓库整体的违规趋势"，在开发者报告里是"该作者在该仓库的违规趋势"，
-    标题必须能区分开（main_project.py 不传该参数，图与以前完全一致）。
+    ``owner_name``（开发者名）非空时写进标题，用于开发者报告——同一张图在公司级 /
+    项目报告里是"该仓库整体的违规趋势"，在开发者报告里是"该作者在该仓库的违规趋势"，
+    标题必须能区分开（不传该参数时保持原有标题）。
     """
     points = _trend_points(trend)
     if not points:
@@ -243,7 +243,7 @@ def chart_repo_trends(trends: list[RepoBuildTrend], owner_name: str | None = Non
     （不会产生只有坐标轴的空图）。
 
     ``owner_name``（开发者名）可选：非空时画进图标题，供开发者报告
-    （main_developer.py）区分"某开发者在某仓库的趋势"与项目报告里的整仓趋势。
+    （report_author.py）区分"某开发者在某仓库的趋势"与项目报告里的整仓趋势。
     """
     charts: list[dict] = []
 

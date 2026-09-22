@@ -4,19 +4,29 @@ dtp:
   password: "float@2143"
 
 report:
-  output_dir: "./output"
+  output_dir: "./output"      # 报告**根目录**：三类报告分别写入其下的子目录
+                              #   ./output/company/  公司报告  Friendcom_<时间戳>.html / .xlsx
+                              #   ./output/project/  项目报告  <项目名>_report_<时间戳>.html / .xlsx
+                              #   ./output/author/   开发者报告 <作者名>_developer_report_<时间戳>.html / .xlsx
+                              # 每次"连接 DTP 并获取数据"开始时只清空这个根目录一次
+                              # （即上一轮的三个子目录会被一起清掉）
   project_names: []
-  top_n_bad: 3                # main_friendcom.py 跨项目对比图：显示违规最多的前 N 个项目
-                              # （main_project.py 的项目报告第 4 章"项目违规图"固定显示该项目下全部仓库，不受此项影响）
+  top_n_bad: 3                # 公司报告跨项目对比图：显示违规最多的前 N 个项目
+                              # （主干报告的第 4 章"项目违规图"固定显示该项目下全部仓库，不受此项影响）
   top_n_good: 3
-  trend_builds: 10            # 趋势图：每个仓库取最近多少次构建（0=不生成趋势图）
-                              # main_project.py 用它画"整仓"趋势；main_developer.py 用它画
-                              # "该开发者在每个仓库"的趋势（并在抓取开发者索引时一次取完）
-  max_workers: 4              # main_developer.py 并发抓取线程数（DTP count 接口单次 1~3 秒，
-                              # 60 个仓库 × 10 次构建的开发者数据靠它压到可接受的时间）
-  locale_friendcom: "v2_zh"   # main_friendcom.py 使用
-  locale_project: "v3_zh"     # main_project.py 使用
-  locale_developer: "v4_zh"   # main_developer.py 使用（report_v4_zh.html：开发者概览/开发者违规图/开发者趋势图）
+  trend_builds: 0             # 趋势数据（违规数）的抓取口径：每个仓库取多少次构建
+                              #   0  = 全部构建（默认）：每个仓库每次构建一个趋势点
+                              #   >0 = 只取最近 N 次构建（构建特别多、想缩短抓取时间时用）
+                              #   <0 = 不抓趋势数据（趋势图为空；开发者数据退化为只取最新一次构建）
+                              # 公司/项目报告用它画"整仓"趋势；开发者报告用它画
+                              # "该开发者在每个仓库"的趋势（都在抓取数据时一次取完）
+                              # 其它数据（文件数 / 代码行数 / 严重级别 / 分类 / 最新违规数）
+                              # 一律只取每个仓库**最近一次构建**，不受此项影响
+  max_workers: 4              # 并发抓取线程数（DTP count 接口单次 1~3 秒，
+                              # "仓库数 × 每个仓库的每次构建"的请求量靠它压到可接受的时间）
+  locale_friendcom: "v2_zh"   # 公司报告（main.py --company）使用
+  locale_project: "v3_zh"     # 项目报告使用（main.py --project-keys）
+  locale_developer: "v4_zh"   # 开发者报告使用（main.py --authors；report_v4_zh.html：开发者概览/开发者违规图/开发者趋势图）
 
 merge_projects:
   海外三相电表平台:
