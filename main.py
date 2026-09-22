@@ -67,7 +67,6 @@ from analyzer import (
 )
 from analyzer_author import AuthorIndex, collect_author_index
 from report_author import (
-    DEFAULT_TREND_BUILDS,
     format_author_table,
     generate_author_reports,
     load_config,
@@ -121,10 +120,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 三类报告的默认模板，与 config.yaml 保持一致
+# 公司报告 / 项目报告的默认模板，与 config.yaml 保持一致
+# （开发者报告的默认模板由 report_author.resolve_settings 决定）
 DEFAULT_COMPANY_LOCALE = "v2_zh"
 DEFAULT_PROJECT_LOCALE = "v3_zh"
-DEFAULT_AUTHOR_LOCALE = "v4_zh"
 
 # 公司报告文件名前缀：Friendcom_20260916_173616.html / .xlsx
 COMPANY_REPORT_PREFIX = "Friendcom"
@@ -742,54 +741,20 @@ class UnifiedReportApp:
         container = ttk.Frame(self.root, padding=10)
         container.pack(fill="both", expand=True)
         container.columnconfigure(0, weight=1)
-        container.rowconfigure(2, weight=3)  # 三块（选项卡）
-        container.rowconfigure(3, weight=2)  # 日志
+        container.rowconfigure(1, weight=3)  # 三块（选项卡）
+        container.rowconfigure(2, weight=2)  # 日志
 
-        self._build_config_frame(container)  # row 0
-        self._build_fetch_frame(container)   # row 1
-        self._build_notebook(container)      # row 2
-        self._build_log_frame(container)     # row 3
+        self._build_fetch_frame(container)   # row 0
+        self._build_notebook(container)      # row 1
+        self._build_log_frame(container)     # row 2
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-
-    def _build_config_frame(self, parent: "ttk.Frame") -> None:
-        frame = ttk.LabelFrame(parent, text="配置信息（config.yaml）", padding=8)
-        frame.grid(row=0, column=0, sticky="ew")
-        frame.columnconfigure(1, weight=1)
-
-        self.info_vars = {
-            "config": tk.StringVar(value=str(Path(self.config_path).resolve())),
-            "url": tk.StringVar(value="-"),
-            "output": tk.StringVar(value="-"),
-            "company": tk.StringVar(value="-"),
-            "project": tk.StringVar(value="-"),
-            "author": tk.StringVar(value="-"),
-            "options": tk.StringVar(value="-"),
-        }
-        rows = (
-            ("配置文件", "config"),
-            ("DTP 服务器", "url"),
-            ("输出目录", "output"),
-            ("公司报告模板", "company"),
-            ("项目报告模板", "project"),
-            ("开发者报告模板", "author"),
-            ("抓取选项", "options"),
-        )
-        for row_index, (label, key) in enumerate(rows):
-            ttk.Label(frame, text=f"{label}：").grid(row=row_index, column=0, sticky="w", padx=(0, 6))
-            ttk.Label(frame, textvariable=self.info_vars[key]).grid(
-                row=row_index, column=1, sticky="w"
-            )
-
-        ttk.Button(frame, text="重新加载配置", command=self._reload_config).grid(
-            row=0, column=2, rowspan=len(rows), sticky="e", padx=(10, 0)
-        )
 
     def _build_fetch_frame(self, parent: "ttk.Frame") -> None:
         frame = ttk.LabelFrame(
             parent, text="① 连接 DTP 并获取数据（三类报告共用这一份数据）", padding=8
         )
-        frame.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        frame.grid(row=0, column=0, sticky="ew")
         frame.columnconfigure(2, weight=1)
 
         self.fetch_button = ttk.Button(
@@ -805,20 +770,26 @@ class UnifiedReportApp:
             row=0, column=2, sticky="w"
         )
 
+        # 配置（config.yaml）在每次抓取前自动重读；这个按钮用于改完配置后手动重读，
+        # 重读会作废已抓取的数据（仓库范围可能已变），需要重新点“连接 DTP 并获取数据”。
+        ttk.Button(frame, text="重新加载配置", command=self._reload_config).grid(
+            row=0, column=3, sticky="e", padx=(10, 0)
+        )
+
         self.fetch_status_var = tk.StringVar(
             value="尚未获取数据：数据就绪后下面三块的报告按钮才会变成可点击。"
         )
         ttk.Label(frame, textvariable=self.fetch_status_var, foreground="#333").grid(
-            row=1, column=0, columnspan=3, sticky="w", pady=(6, 0)
+            row=1, column=0, columnspan=4, sticky="w", pady=(6, 0)
         )
         self.data_summary_var = tk.StringVar(value="")
         ttk.Label(frame, textvariable=self.data_summary_var, foreground="#0a6a00").grid(
-            row=2, column=0, columnspan=3, sticky="w", pady=(2, 0)
+            row=2, column=0, columnspan=4, sticky="w", pady=(2, 0)
         )
 
     def _build_notebook(self, parent: "ttk.Frame") -> None:
         frame = ttk.Frame(parent)
-        frame.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
+        frame.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(0, weight=1)
 
@@ -934,7 +905,7 @@ class UnifiedReportApp:
 
     def _build_log_frame(self, parent: "ttk.Frame") -> None:
         frame = ttk.LabelFrame(parent, text="日志", padding=8)
-        frame.grid(row=3, column=0, sticky="nsew", pady=(8, 0))
+        frame.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(0, weight=1)
 
@@ -1020,7 +991,11 @@ class UnifiedReportApp:
     # 配置
     # ------------------------------------------------------------------
     def _reload_config(self, initial: bool = False) -> bool:
-        """重新读取 config.yaml，刷新配置信息、项目列表与抓取选项。"""
+        """重新读取 config.yaml，刷新项目列表（配置变更后作废已抓取的数据）。
+
+        界面左上角没有“配置信息”面板了，配置内容不再回显；重读结果只在日志框里
+        留一条记录（配置文件路径 + 项目数），方便确认读的是哪份配置。
+        """
         try:
             config = load_config(self.config_path)
         except Exception as exc:  # 文件缺失 / yaml 解析失败
@@ -1030,30 +1005,8 @@ class UnifiedReportApp:
             self.fetch_status_var.set("配置读取失败：请检查 config.yaml 后重新加载。")
             return False
 
-        dtp_cfg = config.get("dtp", {}) or {}
-        report_cfg = config.get("report", {}) or {}
         merge_projects = config.get("merge_projects", {}) or {}
-
-        self.info_vars["config"].set(str(Path(self.config_path).resolve()))
-        self.info_vars["url"].set(str(dtp_cfg.get("url", "-")))
-        self.info_vars["output"].set(
-            str(Path(str(report_cfg.get("output_dir", "./output"))).resolve())
-            + "（company / project / author 三个子目录）"
-        )
-        self.info_vars["company"].set(str(report_cfg.get("locale_friendcom", DEFAULT_COMPANY_LOCALE)))
-        self.info_vars["project"].set(str(report_cfg.get("locale_project", DEFAULT_PROJECT_LOCALE)))
-        self.info_vars["author"].set(str(report_cfg.get("locale_developer", DEFAULT_AUTHOR_LOCALE)))
-        trend_builds = int(report_cfg.get("trend_builds", DEFAULT_TREND_BUILDS))
-        if trend_builds == 0:
-            trend_scope = "全部构建"
-        elif trend_builds > 0:
-            trend_scope = f"最近 {trend_builds} 次构建"
-        else:
-            trend_scope = "不抓趋势数据"
-        self.info_vars["options"].set(
-            f"趋势数据：每个仓库{trend_scope}，"
-            f"并发 {max(1, int(report_cfg.get('max_workers', 4)))} 线程"
-        )
+        summary = f"{Path(self.config_path).resolve()}：{len(merge_projects)} 个项目"
 
         # 项目列表直接来自 config.yaml（不用连 DTP），配置一变就刷新
         self.project_selector.set_items([str(name) for name in merge_projects])
@@ -1064,9 +1017,9 @@ class UnifiedReportApp:
             self.author_selector.set_items([])
             self._reset_progress()
             self.fetch_status_var.set("配置已变更，请重新点击“连接 DTP 并获取数据”。")
-            self.log_queue.put("[系统] 配置已重新加载，之前抓取的数据已作废。")
+            self.log_queue.put(f"[系统] 配置已重新加载（{summary}），之前抓取的数据已作废。")
         elif not initial:
-            self.log_queue.put("[系统] 配置已重新加载。")
+            self.log_queue.put(f"[系统] 配置已重新加载（{summary}）。")
 
         self._refresh_buttons()
         return True
