@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DTP 报告生成器 —— 图形界面公共设施（main.py 的 GUI 窗口使用）。
+"""DTP 报告生成器 —— 图形界面公共设施（gui_app / gui_widgets 使用）。
 
 内容：
 
@@ -9,7 +9,8 @@
 3. :func:`open_in_file_manager`：用系统文件管理器打开目录（Windows / macOS / Linux）；
 4. 日志相关的公共常量（格式 / 刷新间隔 / 最大行数）。
 
-只有图形界面会导入本模块（内部用到 ``tkinter`` 的 messagebox），命令行模式不会加载它。
+只有图形界面会导入本模块（内部用到 ``tkinter`` 的 messagebox），命令行模式不会加载它；
+界面实现见 ``gui_app``（主窗口）与 ``gui_widgets``（可复用控件）。
 """
 
 from __future__ import annotations
