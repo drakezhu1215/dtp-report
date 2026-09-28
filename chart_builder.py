@@ -113,6 +113,46 @@ def _plot_total_violations(
     return _fig_to_base64(fig)
 
 
+def _plot_defect_density(
+    active: list[ProjectViolations],
+    title: str,
+    color: str = "#d32f2f",
+) -> str:
+    """缺陷密度（每千行代码的违规数）条形图。
+
+    与"违规数量对比图"的区别：这里画的是密度（``ProjectViolations.defect_density``），
+    因此调用方**必须先过滤掉 ``code_lines`` 为 0 的条目**——否则"没有代码行数数据"
+    会被画成"密度真的很低"，把榜单带偏。
+
+    单位与表格口径一致：``违规数 × 1000 / 代码行数``（每千行代码违规数）。
+    """
+    names = [d.project_name for d in active]
+    density = [d.defect_density for d in active]
+
+    n = len(names)
+    fig, ax = plt.subplots(figsize=(max(8.0, min(n * 1.5, 30.0)), 6.0))
+    x = list(range(n))
+    bars = ax.bar(x, density, 0.5, color=color)
+
+    ax.set_xlabel("项目 (Project)")
+    ax.set_ylabel("缺陷密度 (Violations per KLOC)")
+    ax.set_title(title)
+    ax.set_xticks(x)
+    label_size = 11 if n <= 8 else (9 if n <= 16 else 7)
+    ax.set_xticklabels(names, rotation=25 if n <= 8 else 45, ha="right", fontsize=label_size)
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda v, _: f"{int(v):,}"))
+
+    value_size = 9 if n <= 16 else 7
+    for bar in bars:
+        h = bar.get_height()
+        if h > 0:
+            ax.annotate(f"{int(h):,}", xy=(bar.get_x() + bar.get_width() / 2, h),
+                        xytext=(0, 3), textcoords="offset points", ha="center", fontsize=value_size)
+
+    fig.tight_layout()
+    return _fig_to_base64(fig)
+
+
 def chart_total_violations_bad(
     data: list[ProjectViolations],
     top_n_bad: int = 3,
@@ -159,14 +199,79 @@ def chart_total_violations_good(data: list[ProjectViolations], top_n_good: int =
     )
 
 
+def _density_candidates(data: list[ProjectViolations]) -> list[ProjectViolations]:
+    """能参与缺陷密度排名的条目：有静态分析数据，且**有代码行数**。
+
+    代码行数为 0（``with_code_lines`` 未开启或 DTP 该 build 未上报 metrics）时
+    ``defect_density`` 也返回 0，但那不是"密度真的低"，只是没有数据；
+    如果不排除，"缺陷密度最低的模范榜"会被一堆无数据条目占满。
+    """
+    return [d for d in data if d.has_data and d.code_lines > 0]
+
+
+def chart_defect_density_bad(
+    data: list[ProjectViolations],
+    top_n_bad: int = 3,
+    title: str | None = None,
+) -> str:
+    """缺陷密度**最高**的前 ``top_n_bad`` 个项目（公司报告第 5.1 章）。
+
+    ``top_n_bad <= 0`` 时不截断；没有"有代码行数"的条目时返回空串
+    （模板会显示"暂无可显示的数据图表。"）。
+    """
+    active = sorted(_density_candidates(data), key=lambda d: d.defect_density, reverse=True)
+    if top_n_bad > 0:
+        active = active[:top_n_bad]
+    if not active:
+        return ""
+
+    return _plot_defect_density(
+        active,
+        title or f"缺陷密度最高的前 {len(active)} 个项目（每千行代码违规数）",
+        color="#d32f2f",
+    )
+
+
+def chart_defect_density_good(
+    data: list[ProjectViolations],
+    top_n_good: int = 3,
+    title: str | None = None,
+) -> str:
+    """缺陷密度**最低**的前 ``top_n_good`` 个项目（公司报告第 5.2 章）。
+
+    取升序前 n 个；``top_n_good <= 0`` 时不截断；没有"有代码行数"的条目时返回空串。
+    """
+    active = sorted(_density_candidates(data), key=lambda d: d.defect_density)
+    if top_n_good > 0:
+        active = active[:top_n_good]
+    if not active:
+        return ""
+
+    return _plot_defect_density(
+        active,
+        title or f"缺陷密度最低的前 {len(active)} 个项目（每千行代码违规数）",
+        # "模范榜"用蓝色（#1976d2），与第 4.2 章"合规模范榜"的配色保持一致
+        color="#1976d2",
+    )
+
+
 def generate_all_charts(
     data: list[ProjectViolations],
     top_n_bad: int = 3,
     top_n_good: int = 3,
+    top_n_density_bad: int = 3,
+    top_n_density_good: int = 3,
 ) -> dict:
+    """公司报告（跨项目对比）用到的全部图表。
+
+    - ``total_bad`` / ``total_good``：违规数量最多 / 最少的项目对比图（第 4 章）；
+    - ``density_bad`` / ``density_good``：缺陷密度最高 / 最低的项目对比图（第 5 章）。
+    """
     charts: dict = {}
     charts["total_bad"] = chart_total_violations_bad(data, top_n_bad=top_n_bad)
     charts["total_good"] = chart_total_violations_good(data, top_n_good=top_n_good)
+    charts["density_bad"] = chart_defect_density_bad(data, top_n_bad=top_n_density_bad)
+    charts["density_good"] = chart_defect_density_good(data, top_n_good=top_n_density_good)
     return charts
 
 
