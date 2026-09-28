@@ -87,25 +87,7 @@
   </tbody>
 </table>
 
-<h2>3. 违规警示榜</h2>
-<div class="chart-section">
-  {% if charts.total_bad %}
-  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="违规总量对比图">
-  {% else %}
-  <p>暂无可显示的数据图表。</p>
-  {% endif %}
-</div>
-
-<h2>4. 合规模范榜</h2>
-<div class="chart-section">
-  {% if charts.total_good %}
-  <img src="data:image/png;base64,{{ charts.total_good }}" alt="合规项目对比图">
-  {% else %}
-  <p>暂无可显示的数据图表。</p>
-  {% endif %}
-</div>
-
-<h2>5. 严重级别明细表</h2>
+<h2>3. 严重级别明细表</h2>
 <table>
   <thead>
     <tr>
@@ -128,6 +110,47 @@
     {% endfor %}
   </tbody>
 </table>
+
+<h2>4. 违规榜</h2>
+
+<h3>4.1 违规警示榜</h3>
+<div class="chart-section">
+  {% if charts.total_bad %}
+  <img src="data:image/png;base64,{{ charts.total_bad }}" alt="违规警示榜（违规最多的项目）">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
+
+<h3>4.2 合规模范榜</h3>
+<div class="chart-section">
+  {% if charts.total_good %}
+  <img src="data:image/png;base64,{{ charts.total_good }}" alt="合规模范榜（违规最少的项目）">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
+
+<h2>5. 缺陷密度榜</h2>
+
+<h3>5.1 缺陷密度警示榜</h3>
+{# 缺陷密度 = 违规数量 × 1000 / 代码行数；只统计有代码行数数据的项目，避免"无数据"被当成 0 #}
+<div class="chart-section">
+  {% if charts.density_bad %}
+  <img src="data:image/png;base64,{{ charts.density_bad }}" alt="缺陷密度警示榜（缺陷密度最高的项目）">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
+
+<h3>5.2 缺陷密度模范榜</h3>
+<div class="chart-section">
+  {% if charts.density_good %}
+  <img src="data:image/png;base64,{{ charts.density_good }}" alt="缺陷密度模范榜（缺陷密度最低的项目）">
+  {% else %}
+  <p>暂无可显示的数据图表。</p>
+  {% endif %}
+</div>
 
 <div class="footer">
   DTP静态分析违规对比报告 | 由 dtp_sa_report 工具自动生成

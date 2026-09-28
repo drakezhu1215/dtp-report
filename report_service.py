@@ -89,7 +89,8 @@ def generate_company_report(
     """生成公司级报告（把 config.yaml 的 merge_projects 合并后做跨项目对比）。
 
     合并 config.yaml 的 merge_projects 后做公司级汇总：摘要卡按"唯一仓库"去重统计，
-    项目概览 / 违规警示榜 / 合规模范榜等按合并组逐行展示。
+    项目概览 / 严重级别明细表按合并组逐行展示，违规榜（违规警示榜 + 合规模范榜）
+    与缺陷密度榜（缺陷密度警示榜 + 缺陷密度模范榜）按合并组出图。
 
     输出到 ``<报告根目录>/company/``。
     """
@@ -119,6 +120,9 @@ def generate_company_report(
         merged,
         top_n_bad=int(report_cfg.get("top_n_bad", 3)),
         top_n_good=int(report_cfg.get("top_n_good", 3)),
+        # 第 5 章"缺陷密度榜"：缺陷密度最高 / 最低的前 N 个项目
+        top_n_density_bad=int(report_cfg.get("top_n_density_bad", 3)),
+        top_n_density_good=int(report_cfg.get("top_n_density_good", 3)),
     )
 
     out = report_out_dir(bundle, "company", out_dir)
