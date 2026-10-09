@@ -53,6 +53,8 @@
   <div class="card"><div class="label">文件总数</div><div class="value sm">{{ "{:,}".format(summary.total_files) }}</div></div>
   <div class="card"><div class="label">代码总数</div><div class="value sm">{{ "{:,}".format(summary.total_code_lines) }}</div></div>
   <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ "{:,}".format(summary.total_failed) }}</div></div>
+  {# 缺陷密度 = 违规总数 × 1000 / 代码总数，四舍五入取整；代码总数为 0 或缺数据时为 0 #}
+  <div class="card highlight"><div class="label">缺陷密度</div><div class="value sm">{{ "{:,}".format(summary.total_defect_density) }}</div></div>
 </div>
 
 <h2>2. 项目概览</h2>
