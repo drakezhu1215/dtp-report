@@ -22,10 +22,10 @@
 
 报告内容（report_v4_zh.html）：
 
-1. 摘要：该开发者**相关仓库**的整仓"文件总数/代码总数" + 该开发者的"违规总数"，
-   缺陷密度 = 违规总数 × 1000 / 代码总数（与项目报告同一公式与取整规则）；
-2. 开发者概览：每个相关仓库**最后一次构建**的文件数、代码行数，以及该开发者在这次
-   构建上的违规/抑制/合计/缺陷密度；
+1. 摘要：该开发者的"项目总数"（config.yaml 里包含其相关仓库的项目组个数）、
+   "仓库总数"（相关仓库个数）、"核查总数"（相关仓库的全部 Build 数合计）、
+   该开发者的"违规总数"；
+2. 开发者概览：每个相关仓库**最后一次构建**上该开发者的违规/抑制/合计；
 3. 严重级别明细表：每个相关仓库最后一次构建上该开发者的 Sev1~Sev5 分布；
 4. 开发者违规图：各相关仓库最后一次构建上该开发者的"违规与抑制"对比条形图；
 5. 开发者趋势图：每个相关仓库一张曲线图，X 轴是构建次序（build-1、build-2 ...），
@@ -164,6 +164,29 @@ def warn_missing_repos(data: list[ProjectViolations], repo_names: list[str] | No
     if missing:
         preview = ", ".join(missing[:5]) + (" ..." if len(missing) > 5 else "")
         logger.warning("%d specified repo(s) not found on DTP: %s", len(missing), preview)
+
+
+def count_related_projects(
+    rows: list[ProjectViolations],
+    merge_projects: dict,
+) -> int:
+    """统计与开发者有关的**项目**数（项目 = config.yaml ``merge_projects`` 的组名）。
+
+    一个项目只要包含该作者相关的任意一个仓库，就算\"相关\"；仓库名按报告行里的
+    ``project_name``（DTP 项目/仓库名）精确匹配。一个仓库可能同属多个项目
+    （如 config.yaml 里 ``dual_mode_cco`` 同时属于两个项目组），此时这些项目都会计入。
+
+    注意：这是\"项目总数\"，与摘要里的\"仓库总数\"（``len(rows)``，相关仓库个数）不同。
+    """
+    repo_names = {row.project_name for row in rows}
+    if not repo_names:
+        return 0
+
+    count = 0
+    for source_repos in (merge_projects or {}).values():
+        if any(str(name).strip() in repo_names for name in (source_repos or [])):
+            count += 1
+    return count
 
 
 def build_author_charts(
@@ -343,6 +366,10 @@ def generate_author_reports(
         base_name = build_report_base_name(author, timestamp)
         charts = build_author_charts(author, rows, trends)
 
+        # 与开发者相关的项目数（项目 = config.yaml merge_projects 的组名），
+        # 供摘要第 1 张卡"项目总数"使用；与"仓库总数"（len(rows)）不同
+        related_projects = count_related_projects(rows, settings.get("merge_projects") or {})
+
         html_path = generate_html_report(
             rows,
             charts,
@@ -350,6 +377,7 @@ def generate_author_reports(
             dtp_url=settings["url"],
             locale=settings["locale"],
             developer_name=author,  # 标题显示开发者名，而不是项目名
+            related_projects=related_projects,  # 摘要"项目总数"
         )
         logger.info("  HTML report: %s", html_path)
 

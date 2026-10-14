@@ -72,6 +72,9 @@ def _build_summary(
     # 代码总数 = 去重后各仓库的代码行数合计；
     # code_lines 由 collect_violations(with_code_lines=True) 从 DTP metrics 指标取得
     total_code_lines = sum(d.code_lines for d in totals)
+    # 核查总数 = 各相关仓库的构建（Build）数合计；build_count 由开发者报告相关路径
+    # （analyzer_author.repos_of / collect_author_repo_rows）填充，其它报告恒为 0
+    total_builds = sum(d.build_count for d in totals)
     # 项目级缺陷密度 = 违规总数 × 1000 / 代码总数，四舍五入取整；
     # 与单个仓库的 defect_density 用同一个函数，口径一致
     total_defect_density = calculate_defect_density(total_failed, total_code_lines)
@@ -98,6 +101,7 @@ def _build_summary(
         "total_suppressed": total_suppressed,
         "total_files": total_files,
         "total_code_lines": total_code_lines,
+        "total_builds": total_builds,
         "total_defect_density": total_defect_density,
         "highest_project": highest_project,
         "highest_project_count": highest_project_count,
@@ -116,6 +120,7 @@ def generate_html_report(
     project_name: str | None = None,
     summary_source: list[ProjectViolations] | None = None,
     developer_name: str | None = None,
+    related_projects: int | None = None,
 ) -> Path:
     """渲染 HTML 报告。
 
@@ -127,7 +132,10 @@ def generate_html_report(
     ``filter_id`` 去重），避免一个仓库属于多个项目组时被重复计入总量；
     为 None 时摘要仍按 ``data`` 统计；
     ``developer_name`` 只在开发者报告（report_v4_zh.html）里用：非空时标题变成
-    "``<开发者>`` 开发者代码核查报告"，``project_name`` 优先，两者都不传时保持原样。
+    "``<开发者>`` 开发者代码核查报告"，``project_name`` 优先，两者都不传时保持原样；
+    ``related_projects`` 可选，只在开发者报告里用：与该开发者相关的**项目**数
+    （config.yaml ``merge_projects`` 里包含其相关仓库的项目组个数），写入
+    ``summary["related_projects"]``；未传时为 0（其它模板不使用该字段）。
     """
     template_name = TEMPLATE_MAP.get(locale, "report_zh.html")
 
@@ -136,6 +144,9 @@ def generate_html_report(
     template = env.get_template(template_name)
 
     summary = _build_summary(data, summary_source)
+    # 与开发者相关的项目数（项目 = config.yaml merge_projects 的组名），
+    # 由 report_author.count_related_projects 计算后传入；其它报告不使用
+    summary["related_projects"] = int(related_projects or 0)
 
     # 只对明细表排序，不影响其他表（有严重级别明细的项目、按违规数降序）
     detail_data = sorted(
