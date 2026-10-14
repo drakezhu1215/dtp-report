@@ -24,10 +24,10 @@
    因此严重级别要逐个 (作者, 仓库) 查询，见 :func:`collect_author_severities`。
 
 4. **文件数 / 代码行数**在 DTP 里没有作者维度（``/staticAnalysisFiles``、
-   ``/metrics/METRIC.NOPLIF`` 都是整个 build 的），所以报告里这两个数字是
-   "该仓库整仓"的数字：摘要里的"文件总数/代码总数"= 该作者相关仓库的整仓合计，
-   "违规总数"= 该作者的违规合计，缺陷密度 = 违规总数 × 1000 / 代码总数
-   （与 :func:`analyzer.calculate_defect_density` 同一个公式与取整规则）。
+   ``/metrics/METRIC.NOPLIF`` 都是整个 build 的），开发者报告因此不再展示这两个
+   数字。摘要里的"仓库总数"= 该作者相关仓库的个数，"核查总数"= 这些相关仓库的
+   全部构建（Build）数合计（每行 ``build_count`` 汇总，见报告层 ``_build_summary``），
+   "违规总数"= 该作者的违规合计。
 
 一次抓取的产物是 :class:`AuthorIndex`：它把“每个仓库每次构建的作者违规分布”
 缓存在内存里（默认取**全部构建**，可用 ``max_builds`` 限制次数），之后为任意多个
@@ -110,7 +110,8 @@ class AuthorIndex:
 
         - ``failed`` / ``suppressed``：该作者在该仓库**最后一次构建**上的违规/抑制数；
         - ``file_count`` / ``code_lines``：该仓库整仓的数字（DTP 没有作者维度的
-          文件数与代码行数），用于摘要的"文件总数/代码总数"和缺陷密度分母；
+          文件数与代码行数；开发者报告已不再展示，仅保留字段）；
+        - ``build_count``：该仓库的构建总数，供报告摘要的"核查总数"求和；
         - ``has_data``：该仓库有静态分析数据时为 True（此处必为 True）；
         - ``severity_breakdown`` 留空，由 :func:`collect_author_severities` 补抓。
         """
@@ -134,6 +135,8 @@ class AuthorIndex:
                     suppressed=int(stats.get("suppressed") or 0),
                     file_count=repo.file_count,
                     code_lines=repo.code_lines,
+                    # 该仓库的构建总数（开发者报告摘要"核查总数"= 各相关仓库构建数合计）
+                    build_count=len(self.repo_builds.get(repo.project_name, [])),
                 )
             )
 
@@ -404,6 +407,10 @@ def collect_author_repo_rows(
         if failed <= 0 and suppressed <= 0:
             return None
 
+        # 构建总数：该仓库的全部构建（与索引路径 AuthorIndex.repos_of 口径一致），
+        # 供开发者报告摘要的"核查总数"求和用；取不到时保持 0
+        build_count = len(_safe_builds(client, repo, None))
+
         return ProjectViolations(
             project_name=repo.project_name,
             filter_id=repo.filter_id,
@@ -414,6 +421,7 @@ def collect_author_repo_rows(
             suppressed=suppressed,
             file_count=repo.file_count,
             code_lines=repo.code_lines,
+            build_count=build_count,
         )
 
     with ThreadPoolExecutor(max_workers=workers) as pool:

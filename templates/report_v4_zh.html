@@ -51,14 +51,15 @@
 
 <h2>1. 摘要</h2>
 <div class="summary-cards">
-  {# 文件总数 / 代码总数 = 与开发者相关的所有仓库的合计（report_html._build_summary 汇总）：
-     DTP 的文件数/代码行数没有作者维度，这里是"整仓"数字；
-     违规总数则是"该作者"的违规合计，缺陷密度按两者相除 #}
-  <div class="card"><div class="label">文件总数</div><div class="value sm">{{ "{:,}".format(summary.total_files) }}</div></div>
-  <div class="card"><div class="label">代码总数</div><div class="value sm">{{ "{:,}".format(summary.total_code_lines) }}</div></div>
+  {# 项目总数 = 与该开发者有关的项目数量（config.yaml merge_projects 的组名，
+     只要组内含该作者相关的任意一个仓库即计入；一个仓库可同属多个项目）；
+     仓库总数 = 与该开发者相关的仓库数量（data 里一行一个相关仓库）；
+     核查总数 = 这些相关仓库的全部构建（Build）数合计；
+     违规总数 = "该作者"的违规合计 #}
+  <div class="card"><div class="label">项目总数</div><div class="value sm">{{ "{:,}".format(summary.related_projects) }}</div></div>
+  <div class="card"><div class="label">仓库总数</div><div class="value sm">{{ "{:,}".format(summary.total_projects) }}</div></div>
+  <div class="card"><div class="label">核查总数</div><div class="value sm">{{ "{:,}".format(summary.total_builds) }}</div></div>
   <div class="card highlight"><div class="label">违规总数</div><div class="value sm">{{ "{:,}".format(summary.total_failed) }}</div></div>
-  {# 缺陷密度 = 违规总数 × 1000 / 代码总数，四舍五入取整；代码总数为 0 或缺数据时为 0 #}
-  <div class="card highlight"><div class="label">缺陷密度</div><div class="value sm">{{ "{:,}".format(summary.total_defect_density) }}</div></div>
 </div>
 
 <h2>2. 开发者概览</h2>
@@ -67,12 +68,9 @@
     <tr>
       <th>序号</th>
       <th>仓库名称</th>
-      <th class="num">文件数</th>
-      <th class="num">代码行数</th>
       <th class="num">违规</th>
       <th class="num">抑制</th>
       <th class="num">合计</th>
-      <th class="num">缺陷密度</th>
     </tr>
   </thead>
   <tbody>
@@ -80,15 +78,9 @@
     <tr>
       <td>{{ loop.index }}</td>
       <td>{{ d.project_name }}</td>
-      {# 文件数来自 DTP /staticAnalysisFiles（扫描的源文件数），缺数据时显示"无数据" #}
-      <td class="num">{{ "{:,}".format(d.file_count) if d.has_data else "无数据" }}</td>
-      {# 代码行数来自 DTP metrics 指标；若该 build 未上报指标(值为 0)则显示"无数据" #}
-      <td class="num">{{ "{:,}".format(d.code_lines) if d.code_lines else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.failed) if d.has_data else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.suppressed) if d.has_data else "无数据" }}</td>
       <td class="num">{{ "{:,}".format(d.failed + d.suppressed) if d.has_data else "无数据" }}</td>
-      {# 缺陷密度 = 该仓库违规数量 × 1000 / 该仓库代码行数，四舍五入取整；代码行数为 0 或缺数据时为 0 #}
-      <td class="num">{{ "{:,}".format(d.defect_density) }}</td>
     </tr>
     {% endfor %}
   </tbody>

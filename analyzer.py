@@ -62,6 +62,10 @@ class ProjectViolations:
     # 代码行数合计（DTP metrics 指标值，主选 METRIC.NOPLIF 物理行数）。
     # 同样默认 0，仅在 collect_violations(with_code_lines=True) 时查询。
     code_lines: int = 0
+    # 该仓库的构建（Build）总数。默认 0：只有开发者报告相关路径
+    # （analyzer_author.repos_of / collect_author_repo_rows）会填充，用于摘要的
+    # "核查总数"（= 作者相关仓库的构建数合计）。其它报告不使用这个字段。
+    build_count: int = 0
     severity_breakdown: dict[str, int] = field(default_factory=dict)
     category_breakdown: dict[str, int] = field(default_factory=dict)
 
